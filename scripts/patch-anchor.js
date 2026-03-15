@@ -63,20 +63,11 @@ if (fs.existsSync(dlmmMjs)) {
 
   // Fix 3: ESM cannot find named export 'BN' from CommonJS anchor
   // We rewrite the imports to remove BN and then add a top-level BN import.
-  src = src.replace(
-    /import \{([^}]*)\bBN\b([^}]*)\} from "@coral-xyz\/anchor";/g,
-    (_, before, after) => {
-      const remaining = [before.trim(), after.trim()].filter(Boolean).join(", ");
-      const anchorImport = remaining ? `import { ${remaining} } from "@coral-xyz/anchor";` : "";
-      return `${anchorImport}\nimport BN from "bn.js";`;
-    }
-  );
-
-  // Handle single imports: import { BN } from "@coral-xyz/anchor";
-  src = src.replace(
-    /import \{ BN \} from "@coral-xyz\/anchor";/g,
-    'import BN from "bn.js";'
-  );
+  
+  // First, ensure BN is imported from bn.js at the top if any BN imports exist
+  if (src.includes('from "@coral-xyz/anchor"') && src.includes('BN')) {
+    src = 'import BN from "bn.js";\n' + src;
+  }
 
   // Handle aliased BN imports (very common in dlmm dist)
   // e.g. import { BN as BN18 } from "@coral-xyz/anchor";
@@ -85,7 +76,17 @@ if (fs.existsSync(dlmmMjs)) {
     (_, before, alias, after) => {
       const remaining = [before.trim(), after.trim()].filter(Boolean).join(", ");
       const anchorImport = remaining ? `import { ${remaining} } from "@coral-xyz/anchor";` : "";
-      return `${anchorImport}\nimport _BN from "bn.js"; const ${alias} = _BN;`;
+      return `${anchorImport}\nconst ${alias} = BN;`;
+    }
+  );
+
+  // Handle named BN imports: import { BN } from "@coral-xyz/anchor";
+  src = src.replace(
+    /import \{([^}]*)\bBN\b([^}]*)\} from "@coral-xyz\/anchor";/g,
+    (_, before, after) => {
+      const remaining = [before.trim(), after.trim()].filter(Boolean).join(", ");
+      const anchorImport = remaining ? `import { ${remaining} } from "@coral-xyz/anchor";` : "";
+      return anchorImport;
     }
   );
 
