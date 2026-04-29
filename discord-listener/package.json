@@ -4,7 +4,7 @@
   "type": "module",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "npx tsx index.ts"
   },
   "dependencies": {
     "discord.js-selfbot-v13": "^3.5.1",

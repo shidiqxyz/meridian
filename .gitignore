@@ -41,3 +41,15 @@ discord-signals.json
 
 # Claude Code runtime lock
 .claude/scheduled_tasks.lock
+
+# Coverage
+coverage/
+
+# Temp files (atomic writes, test artifacts)
+*.tmp
+test_output.txt
+coverage_output.txt
+
+# Claude workspace
+.claude/
+!./.claude/scheduled_tasks.lock

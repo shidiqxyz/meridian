@@ -13,7 +13,7 @@ Meridian runs continuous screening and management cycles, deploying capital into
 - **Learns from performance** — studies top LPers in target pools, saves structured lessons, and evolves screening thresholds based on closed position history
 - **Discord signals** — optional Discord listener watches LP Army channels for Solana token calls and queues them for screening
 - **Telegram chat** — full agent chat via Telegram, plus cycle reports and OOR alerts
-- **Claude Code integration** — run AI-powered screening and management directly from your terminal using Claude Code slash commands
+- **CLI** — direct tool invocation with JSON output for scripting and debugging
 
 ---
 
@@ -44,7 +44,6 @@ Agents are powered via **OpenRouter** and can be swapped for any compatible mode
 - Solana wallet (base58 private key)
 - Solana RPC endpoint ([Helius](https://helius.xyz) recommended)
 - Telegram bot token (optional)
-- [Claude Code](https://claude.ai/code) CLI (optional, for terminal slash commands)
 
 ---
 
@@ -53,7 +52,7 @@ Agents are powered via **OpenRouter** and can be swapped for any compatible mode
 ### 1. Clone & install
 
 ```bash
-git clone https://github.com/yunus-0x/meridian
+git clone https://github.com/shidiqxyz/meridian
 cd meridian
 npm install
 ```
@@ -77,6 +76,7 @@ OPENROUTER_API_KEY=sk-or-...
 HELIUS_API_KEY=your_helius_key          # for wallet balance lookups
 TELEGRAM_BOT_TOKEN=123456:ABC...        # optional — for notifications + chat
 TELEGRAM_CHAT_ID=                       # auto-filled on first message
+TELEGRAM_ALLOWED_USER_IDS=              # comma-separated user IDs for command control
 DRY_RUN=true                            # set false for live trading
 ```
 
@@ -97,8 +97,6 @@ Copy config and edit as needed:
 ```bash
 cp user-config.example.json user-config.json
 ```
-
-See [Config reference](#config-reference) below.
 
 ### 3. Run
 
@@ -139,56 +137,6 @@ REPL commands:
 | `/stop` | Graceful shutdown |
 | `<anything>` | Free-form chat — ask the agent anything, request actions, analyze pools |
 
----
-
-### Claude Code terminal (recommended)
-
-Install [Claude Code](https://claude.ai/code) and use it from inside the meridian directory. Claude Code has built-in agents and slash commands that use the `meridian` CLI under the hood.
-
-```bash
-cd meridian
-claude
-```
-
-#### Slash commands
-
-| Command | What it does |
-|---|---|
-| `/screen` | Full AI screening cycle — checks Discord queue, reads config, fetches candidates, runs deep research, and deploys if a winner is found |
-| `/manage` | Full AI management cycle — checks all positions, evaluates PnL, claims fees, closes OOR/losing positions |
-| `/balance` | Check wallet SOL and token balances |
-| `/positions` | List all open DLMM positions with range status |
-| `/candidates` | Fetch and enrich top pool candidates (pool metrics + token audit + smart money) |
-| `/study-pool` | Study top LPers on a specific pool |
-| `/pool-ohlcv` | Fetch price/volume history for a pool |
-| `/pool-compare` | Compare all Meteora DLMM pools for a token pair by APR, fee/TVL ratio, and volume |
-
-#### Claude Code agents
-
-Two specialized sub-agents run inside Claude Code:
-
-**`screener`** — pool screening specialist. Invoke when you want to evaluate candidates, analyse token risk, or deploy a position. Has access to OKX smart money signals, full token audit pipeline, and all strategy logic.
-
-**`manager`** — position management specialist. Invoke when reviewing open positions, assessing PnL, claiming fees, or closing positions.
-
-To trigger an agent directly, just describe what you want:
-```
-> screen for new pools and deploy if you find something good
-> review all my positions and close anything out of range
-> what do you think of the SOL/BONK pool?
-```
-
-#### Loop mode
-
-Run screening or management on a timer inside Claude Code:
-
-```
-/loop 30m /screen     # screen every 30 minutes
-/loop 10m /manage     # manage every 10 minutes
-```
-
----
-
 ### CLI (direct tool invocation)
 
 The `meridian` CLI gives you direct access to every tool with JSON output — useful for scripting, debugging, or piping into other tools.
@@ -196,12 +144,6 @@ The `meridian` CLI gives you direct access to every tool with JSON output — us
 ```bash
 npm install -g .   # install globally (once)
 meridian <command> [flags]
-```
-
-Or run without installing:
-
-```bash
-node cli.js <command> [flags]
 ```
 
 **Positions & PnL**
@@ -324,7 +266,7 @@ cd discord-listener
 npm start
 ```
 
-Or run it in a separate terminal alongside the main agent. Signals are written to `discord-signals.json` and picked up automatically by `/screen` and `node cli.js screen`.
+Or run it in a separate terminal alongside the main agent. Signals are written to `discord-signals.json` and picked up automatically by `/screen` and the screening cycle.
 
 ### Signal pipeline
 
@@ -359,6 +301,8 @@ Add known rug/farm deployer wallet addresses to `deployer-blacklist.json`:
 1. Create a bot via [@BotFather](https://t.me/BotFather) and copy the token
 2. Add `TELEGRAM_BOT_TOKEN=<token>` to your `.env`
 3. Start the agent, then send any message to your bot — it auto-registers your chat ID
+
+For command control in groups, set `TELEGRAM_ALLOWED_USER_IDS=<comma-separated user IDs>`.
 
 ### Notifications
 
@@ -433,40 +377,7 @@ All fields are optional — defaults shown. Edit `user-config.json`.
 | `screeningModel` | `openai/gpt-oss-20b:free` | LLM for screening cycles |
 | `generalModel` | `openai/gpt-oss-20b:free` | LLM for REPL / chat |
 
-<<<<<<< HEAD
-> Override model at runtime: `node cli.js config set screeningModel anthropic/claude-opus-4-5`
-
----
-
-## Telegram
-
-**Setup:**
-
-1. Create a bot via [@BotFather](https://t.me/BotFather) and copy the token
-2. Add `TELEGRAM_BOT_TOKEN=<token>` to your `.env`
-3. Set the exact Telegram chat and allowed controller user IDs in `.env`
-
-Meridian no longer auto-registers the first chat for safety. You must set:
-
-```env
-TELEGRAM_BOT_TOKEN=<token>
-TELEGRAM_CHAT_ID=<target chat id>
-TELEGRAM_ALLOWED_USER_IDS=<comma-separated Telegram user ids allowed to control the bot>
-```
-
-Security notes:
-- If `TELEGRAM_CHAT_ID` is not set, inbound Telegram control is ignored.
-- If the target chat is a group/supergroup and `TELEGRAM_ALLOWED_USER_IDS` is empty, inbound control is ignored.
-- Notifications still go to the configured chat, but command/control is limited to the allowed user IDs.
-
-**Notifications sent:**
-- After every management cycle: full agent report (reasoning + decisions)
-- After every screening cycle: full agent report (what it found, whether it deployed)
-- When a position goes out of range past `outOfRangeWaitMinutes`
-- On deploy: pair, amount, position address, tx hash
-- On close: pair and PnL
-
-You can also chat with the agent via Telegram using the same free-form interface as the REPL: `"check wallet 7tB8..."`, `"who are the top LPers in pool ABC..."`, `"close all positions"`, etc. Only explicitly allowed Telegram user IDs can issue commands.
+> Override model at runtime: `meridian config set screeningModel anthropic/claude-opus-4-5`
 
 ---
 
@@ -478,14 +389,14 @@ After every closed position the agent runs `studyTopLPers` on candidate pools, a
 
 Add a lesson manually:
 ```bash
-node cli.js lessons add "Never deploy into pump.fun tokens under 2h old"
+meridian lessons add "Never deploy into pump.fun tokens under 2h old"
 ```
 
 ### Threshold evolution
 
 After 5+ positions have been closed, run:
 ```bash
-node cli.js evolve
+meridian evolve
 ```
 
 This analyzes closed position performance (win rate, avg PnL, fee yields) and automatically adjusts screening thresholds in `user-config.json`. Changes take effect immediately.
@@ -499,10 +410,6 @@ HiveMind sync uses Agent Meridian by default. Shared lessons, presets, and perfo
 **What you get:** shared lessons, strategy presets, and crowd performance context from other Meridian agents.
 
 **What you share:** lessons and closed-position performance. Wallet private keys and balances are never sent.
-
-### Setup
-
-No manual HiveMind registration is required for the shared Agent Meridian setup. `hiveMindUrl`, `hiveMindApiKey`, and `publicApiKey` have built-in Agent Meridian defaults.
 
 ### Disable
 
@@ -529,46 +436,62 @@ Any OpenAI-compatible endpoint works.
 ## Architecture
 
 ```
-index.js            Main entry: REPL + cron orchestration + Telegram bot polling
-agent.js            ReAct loop: LLM → tool call → repeat
-config.js           Runtime config from user-config.json + .env
-prompt.js           System prompt builder (SCREENER / MANAGER / GENERAL roles)
-state.js            Position registry (state.json)
-lessons.js          Learning engine: records performance, derives lessons, evolves thresholds
-pool-memory.js      Per-pool deploy history + snapshots
-strategy-library.js Saved LP strategies
-telegram.js         Telegram bot: polling + notifications
-hivemind.js         Agent Meridian HiveMind sync
-smart-wallets.js    KOL/alpha wallet tracker
-token-blacklist.js  Permanent token blacklist
-cli.js              Direct CLI — every tool as a subcommand with JSON output
-
-tools/
-  definitions.js    Tool schemas (OpenAI format)
-  executor.js       Tool dispatch + safety checks
-  dlmm.js           Meteora DLMM SDK wrapper
-  screening.js      Pool discovery
-  wallet.js         SOL/token balances + Jupiter swap
-  token.js          Token info, holders, narrative
-  study.js          Top LPer study via LPAgent API
+src/
+  index.ts            Main entry: REPL + cron orchestration + Telegram bot polling
+  cli.ts              CLI with JSON output for every tool
+  core/
+    agent/            ReAct loop, prompt building
+    config/           Runtime config, envrypt
+    cron/             Cycle scheduling
+    logger/           Daily-rotating log files + action audit
+    state/            Position registry, lessons, decisions, pool memory, signals
+    types/            Shared TypeScript interfaces
+    utils/            Number formatting, text sanitization
+  services/           Briefing, hivemind, smart-wallets, telegram, token-blacklist
+  tools/
+    definitions.ts    Tool schemas (OpenAI format)
+    executor.ts       Tool dispatch + safety checks
+    dlmm.ts           Meteora DLMM SDK wrapper (deploy, close, claim, positions, PnL)
+    screening.ts      Pool discovery from Meteora API
+    wallet.ts         SOL/token balances (Helius) + Jupiter swap
+    token.ts          Token info/holders/narrative (Jupiter API)
+    study.ts          Top LPer study via LPAgent API
 
 discord-listener/
-  index.js          Selfbot Discord listener
-  pre-checks.js     Signal pre-check pipeline
+  index.ts            Selfbot Discord listener
+  pre-checks.ts       Signal pre-check pipeline
+```
 
-.claude/
-  agents/
-    screener.md     Claude Code screener sub-agent
-    manager.md      Claude Code manager sub-agent
-  commands/
-    screen.md       /screen slash command
-    manage.md       /manage slash command
-    balance.md      /balance slash command
-    positions.md    /positions slash command
-    candidates.md   /candidates slash command
-    study-pool.md   /study-pool slash command
-    pool-ohlcv.md   /pool-ohlcv slash command
-    pool-compare.md /pool-compare slash command
+---
+
+## Development
+
+All source is TypeScript. Run type-checking:
+
+```bash
+npx tsc --noEmit                 # main project
+npx tsc --noEmit -p discord-listener/tsconfig.json   # discord listener
+```
+
+Testing with **vitest** (415 tests, ~98% coverage):
+
+```bash
+npx vitest run                   # run all tests
+npx vitest run --coverage        # with coverage report
+```
+
+Type-checking:
+
+```bash
+npm run typecheck
+```
+
+Scripts run via `npx tsx`:
+
+```bash
+npm run setup                    # interactive setup wizard
+npm run env:encrypt              # encrypt .env.raw → .env
+npm run patch-anchor             # anchor patching utility
 ```
 
 ---

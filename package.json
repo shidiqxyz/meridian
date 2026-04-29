@@ -1,20 +1,24 @@
 {
-  "name": "dlmm-agent",
+  "name": "meridian",
   "version": "1.0.0",
   "type": "module",
   "description": "Autonomous DLMM LP agent for Meteora on Solana",
-  "main": "index.js",
   "bin": {
-    "meridian": "cli.js"
+    "meridian": "src/cli.ts"
   },
   "scripts": {
-    "setup": "node setup.js",
-    "env:encrypt": "node scripts/envrypt.js encrypt",
-    "start": "node index.js",
-    "dev": "DRY_RUN=true node index.js",
-    "test:screen": "node test/test-screening.js",
-    "test:agent": "DRY_RUN=true node test/test-agent.js",
-    "postinstall": "node scripts/patch-anchor.js"
+    "setup": "npx tsx scripts/setup.ts",
+    "env:encrypt": "npx tsx scripts/envrypt.ts encrypt",
+    "start": "npx tsx src/index.ts",
+    "dev": "DRY_RUN=true npx tsx src/index.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:screen": "npx tsx test/test-screening.ts",
+    "test:agent": "DRY_RUN=true npx tsx test/test-agent.ts",
+    "test:critical": "npx tsx test/test-critical-paths.ts",
+    "postinstall": "npx tsx scripts/patch-anchor.ts",
+    "typecheck": "npx tsc --noEmit"
   },
   "knip": {
     "ignore": [
@@ -23,15 +27,24 @@
   },
   "dependencies": {
     "@meteora-ag/dlmm": "1.9.4",
-    "@solana/web3.js": "^1.95.0",
-    "bn.js": "^5.2.1",
-    "bs58": "^5.0.0",
-    "dotenv": "^17.3.1",
-    "jsonrepair": "^3.13.3",
-    "node-cron": "^3.0.3",
-    "openai": "^4.73.0"
+    "@solana/web3.js": "1.95.0",
+    "bn.js": "5.2.1",
+    "bs58": "5.0.0",
+    "dotenv": "17.3.1",
+    "jsonrepair": "3.13.3",
+    "node-cron": "3.0.3",
+    "openai": "4.73.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/bn.js": "^5.2.0",
+    "@types/dotenv": "^8.2.3",
+    "@types/node": "^25.6.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.3",
+    "vitest": "^1.6.0"
   }
 }

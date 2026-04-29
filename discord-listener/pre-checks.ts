@@ -1,0 +1,187 @@
+/**
+ * Discord signal pre-check pipeline
+ * Stages: dedup → blacklist → pool resolution → rug check → deployer check → fees check
+ */
+import fs from "fs";
+import path from "path";
+import { fileURLToPath } from "url";
+import axios from "axios";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT = path.resolve(__dirname, "..");
+
+const recentSeen = new Map<string, number>();
+const DEDUP_WINDOW_MS = 10 * 60 * 1000;
+
+export function dedupCheck(address: string) {
+  const now = Date.now();
+  for (const [k, ts] of recentSeen.entries()) {
+    if (now - ts > DEDUP_WINDOW_MS) recentSeen.delete(k);
+  }
+  if (recentSeen.has(address)) {
+    return { pass: false, reason: "dedup: seen in last 10 minutes" };
+  }
+  recentSeen.set(address, now);
+  return { pass: true };
+}
+
+export function blacklistCheck(mint: string) {
+  const file = path.join(ROOT, "token-blacklist.json");
+  if (!fs.existsSync(file)) return { pass: true };
+  try {
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (data[mint]) {
+      return { pass: false, reason: `blacklisted: ${data[mint].reason || "no reason"}` };
+    }
+  } catch { /* pass */ }
+  return { pass: true };
+}
+
+export async function resolvePool(address: string) {
+  try {
+    const res = await axios.get(`https://dlmm.datapi.meteora.ag/pools/${address}`, { timeout: 8000 });
+    const pool = res.data;
+    if (pool?.address || pool?.pubkey || pool?.pool_address) {
+      const poolAddr = pool.address || pool.pubkey || pool.pool_address || address;
+      const baseMint = pool.mint_x || pool.base_mint || pool.token_x?.address;
+      const symbol = pool.name?.split("-")[0] || pool.token_x?.symbol || "?";
+      const createdAt = pool.created_at || pool.pool_created_at || pool.token_x?.created_at;
+      const tokenAgeMinutes = createdAt ? Math.round((Date.now() - createdAt) / 60000) : null;
+      return { pass: true, pool_address: poolAddr, base_mint: baseMint, symbol, source: "meteora_direct", token_age_minutes: tokenAgeMinutes };
+    }
+  } catch { /* try as token mint */ }
+
+  try {
+    const res = await axios.get(`https://api.dexscreener.com/latest/dex/search?q=${address}`, { timeout: 8000 });
+    const pairs = res.data?.pairs || [];
+    const meteoraPairs = pairs.filter((p: any) =>
+      p.dexId === "meteora-dlmm" &&
+      (p.baseToken?.address === address || p.quoteToken?.address === address)
+    );
+    if (meteoraPairs.length === 0) {
+      return { pass: false, reason: "no Meteora DLMM pool found for this token" };
+    }
+    const best = meteoraPairs.sort((a: any, b: any) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0))[0];
+    const pairCreated = best.pairCreatedAt ? new Date(best.pairCreatedAt).getTime() : null;
+    const tokenAgeMinutes = pairCreated ? Math.round((Date.now() - pairCreated) / 60000) : null;
+    return {
+      pass: true,
+      pool_address: best.pairAddress,
+      base_mint: best.baseToken?.address,
+      symbol: best.baseToken?.symbol || "?",
+      source: "dexscreener",
+      token_age_minutes: tokenAgeMinutes,
+    };
+  } catch (e: any) {
+    return { pass: false, reason: `pool resolution failed: ${e.message}` };
+  }
+}
+
+export async function rugCheck(mint: string) {
+  if (!mint) return { pass: true, rug_score: null };
+  try {
+    const res = await axios.get(`https://api.rugcheck.xyz/v1/tokens/${mint}/report`, { timeout: 10000 });
+    const data = res.data;
+    if (data.rugged) return { pass: false, reason: "rugcheck: token is rugged" };
+    if ((data.score || 0) > 50000) return { pass: false, reason: `rugcheck: score too high (${data.score})` };
+    const topHolders = data.topHolders || [];
+    const top10pct = topHolders.slice(0, 10).reduce((sum: number, h: any) => sum + (h.pct || h.percentage || 0), 0);
+    if (top10pct > 60) return { pass: false, reason: `rugcheck: top10 holders ${top10pct.toFixed(1)}% > 60%` };
+    return { pass: true, rug_score: data.score || 0 };
+  } catch (e: any) {
+    console.warn(`  [rugcheck] API error for ${mint}: ${e.message} — passing`);
+    return { pass: true, rug_score: null };
+  }
+}
+
+export async function deployerCheck(poolAddress: string) {
+  const file = path.join(ROOT, "deployer-blacklist.json");
+  if (!fs.existsSync(file)) return { pass: true };
+  try {
+    const data = JSON.parse(fs.readFileSync(file, "utf8"));
+    const blocked = data.addresses || [];
+    if (blocked.length === 0) return { pass: true };
+
+    const res = await axios.get(`https://dlmm.datapi.meteora.ag/pools/${poolAddress}`, { timeout: 8000 });
+    const creator = res.data?.creator || res.data?.creator_address;
+    if (creator && blocked.includes(creator)) {
+      return { pass: false, reason: `deployer blacklisted: ${creator}` };
+    }
+  } catch { /* pass */ }
+  return { pass: true };
+}
+
+export async function feesCheck(mint: string) {
+  if (!mint) return { pass: true, global_fees_sol: null };
+
+  let minFeesSol = 30;
+  try {
+    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "user-config.json"), "utf8"));
+    minFeesSol = cfg.screening?.minTokenFeesSol ?? cfg.minTokenFeesSol ?? 30;
+  } catch { /* use default */ }
+
+  try {
+    const res = await fetch(`https://datapi.jup.ag/v1/assets/search?query=${mint}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const tokens = Array.isArray(data) ? data : [data];
+    const token = tokens.find(t => t.id === mint) || tokens[0];
+    const globalFees = token?.fees != null ? parseFloat(token.fees) : null;
+
+    if (globalFees === null) {
+      console.warn(`  [fees] No fee data for ${mint} — passing`);
+      return { pass: true, global_fees_sol: null };
+    }
+    if (globalFees < minFeesSol) {
+      return { pass: false, reason: `global fees too low: ${globalFees.toFixed(2)} SOL < ${minFeesSol} SOL threshold` };
+    }
+    return { pass: true, global_fees_sol: globalFees };
+  } catch (e: any) {
+    console.warn(`  [fees] Jupiter API error: ${e.message} — passing`);
+    return { pass: true, global_fees_sol: null };
+  }
+}
+
+export async function runPreChecks(address: string) {
+  console.log(`\n[pre-check] ${address}`);
+
+  const dedup = dedupCheck(address);
+  if (!dedup.pass) { console.log(`  REJECT [dedup] ${dedup.reason}`); return dedup; }
+  console.log(`  OK [dedup]`);
+
+  const bl = blacklistCheck(address);
+  if (!bl.pass) { console.log(`  REJECT [blacklist] ${bl.reason}`); return bl; }
+  console.log(`  OK [blacklist]`);
+
+  const pool = await resolvePool(address);
+  if (!pool.pass) { console.log(`  REJECT [pool] ${pool.reason}`); return pool; }
+  console.log(`  OK [pool] → ${pool.pool_address} (${pool.symbol}, via ${pool.source})`);
+
+  if (pool.base_mint && pool.base_mint !== address) {
+    const bl2 = blacklistCheck(pool.base_mint);
+    if (!bl2.pass) { console.log(`  REJECT [blacklist-mint] ${bl2.reason}`); return bl2; }
+  }
+
+  const rug = await rugCheck(pool.base_mint);
+  if (!rug.pass) { console.log(`  REJECT [rug] ${rug.reason}`); return { ...rug, ...pool }; }
+  console.log(`  OK [rug] score=${rug.rug_score ?? "n/a"}`);
+
+  const deployer = await deployerCheck(pool.pool_address);
+  if (!deployer.pass) { console.log(`  REJECT [deployer] ${deployer.reason}`); return { ...deployer, ...pool }; }
+  console.log(`  OK [deployer]`);
+
+  const fees = await feesCheck(pool.base_mint);
+  if (!fees.pass) { console.log(`  REJECT [fees] ${fees.reason}`); return { ...fees, ...pool }; }
+  console.log(`  OK [fees] global_fees=${fees.global_fees_sol ?? "n/a"} SOL`);
+
+  console.log(`  PASS → queuing signal (token age: ${pool.token_age_minutes ?? "unknown"} min)`);
+  return {
+    pass: true,
+    pool_address: pool.pool_address,
+    base_mint: pool.base_mint,
+    symbol: pool.symbol,
+    rug_score: rug.rug_score,
+    total_fees_sol: fees.global_fees_sol,
+    token_age_minutes: pool.token_age_minutes,
+  };
+}
