@@ -125,7 +125,7 @@ export const config: Config = {
   llm: {
     temperature: u.temperature ?? 0.373,
     maxTokens:   u.maxTokens   ?? 2048,
-    maxSteps:    u.maxSteps    ?? 5,
+    maxSteps:    u.maxSteps    ?? 12,
     managementModel: u.managementModel ?? process.env.LLM_MODEL ?? "deepseek/deepseek-v4-flash:nitro",
     screeningModel:  u.screeningModel  ?? process.env.LLM_MODEL ?? "deepseek/deepseek-v4-flash:nitro",
     generalModel:    u.generalModel    ?? process.env.LLM_MODEL ?? "deepseek/deepseek-v4-flash:nitro",
