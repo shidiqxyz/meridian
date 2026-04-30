@@ -238,7 +238,8 @@ export async function agentLoop(
             temperature: config.llm.temperature,
             max_tokens: maxOutputTokens ?? config.llm.maxTokens,
           });
-        } catch (error) {
+        } catch (error: any) {
+          const errMsg = String(error?.message || error || "");
           if (providerMode === "system" && isSystemRoleError(error)) {
             providerMode = "user_embedded";
             messages = buildMessages(systemPrompt, sessionHistory, goal, providerMode);
@@ -250,6 +251,11 @@ export async function agentLoop(
             toolChoice = "auto";
             log("agent", "Provider rejected tool_choice=required — retrying with tool_choice=auto");
             attempt -= 1;
+            continue;
+          }
+          if (errMsg.includes("Premature close") || errMsg.includes("ECONNREFUSED") || errMsg.includes("socket hang up")) {
+            log("agent", `Connection error: ${errMsg.slice(0, 100)} — retrying (attempt ${attempt + 1}/3)`);
+            await new Promise(r => setTimeout(r, (attempt + 1) * 3000));
             continue;
           }
           throw error;
