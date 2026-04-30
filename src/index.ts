@@ -36,7 +36,10 @@ function stripMarkdown(text: string): string {
     .replace(/^#{1,6}\s+/gm, "")
     .replace(/^\s*[-*]\s+/gm, "• ")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""));
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""))
+    .replace(/\|[\s-]+\|/g, "")
+    .replace(/\|/g, " ")
+    .replace(/\n{3,}/g, "\n\n");
 }
 
 async function runBriefing(): Promise<void> {
@@ -278,11 +281,10 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       const pnlUsd = p.pnl_usd ?? p.pnlUsd ?? 0;
       const totalUsd = p.total_value_usd ?? p.totalValueUsd ?? 0;
       const unclaimedFees = p.unclaimed_fees_usd ?? p.unclaimedFeesUsd ?? 0;
-      const sign = pnlUsd >= 0 ? "+" : "";
       const pnlEmoji = pnlPct >= 0 ? "📈" : "📉";
       reply += `<b>${i + 1}. ${name}</b>\n`;
       reply += `   Value: $${totalUsd.toFixed(2)}\n`;
-      reply += `   PnL: ${sign}$${Math.abs(pnlUsd).toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%) ${pnlEmoji}\n`;
+      reply += `   PnL: ${pnlUsd >= 0 ? "+" : ""}$${pnlUsd.toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%) ${pnlEmoji}\n`;
       if (unclaimedFees > 0) {
         reply += `   Unclaimed fees: $${unclaimedFees.toFixed(2)}\n`;
       }
