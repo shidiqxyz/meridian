@@ -81,8 +81,8 @@ export async function runManagementCycle({ silent = false }: { silent?: boolean 
     const livePositions = await getMyPositions({ force: true }).catch(() => null);
     const positions = livePositions?.positions || [];
     if (positions.length === 0) {
-      report = "No open positions. Triggering screening cycle.";
-      void runScreeningCycle().catch((error: Error) => log("cron_error", `Triggered screening failed: ${error.message}`));
+      report = "No open positions.";
+      managementBusy = false;
       return report;
     }
 
