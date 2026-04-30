@@ -8,7 +8,6 @@ import { tools } from "../../tools/definitions.js";
 const MANAGER_TOOLS = new Set(["close_position", "claim_fees", "swap_token", "get_position_pnl", "get_my_positions", "get_wallet_balance", "get_wallet_positions"]);
 const SCREENER_TOOLS = new Set(["deploy_position", "get_active_bin", "get_top_candidates", "check_smart_wallets_on_pool", "get_token_holders", "get_token_narrative", "get_token_info", "search_pools", "get_pool_memory", "get_wallet_balance", "get_my_positions", "get_wallet_positions"]);
 const GENERAL_INTENT_ONLY_TOOLS = new Set([
-  "self_update",
   "update_config",
   "add_to_blacklist",
   "remove_from_blacklist",
@@ -36,7 +35,7 @@ const INTENT_TOOLS: Record<string, Set<string>> = {
   swap:        new Set(["swap_token", "get_wallet_balance"]),
   config:      new Set(["update_config"]),
   blocklist:   new Set(["add_to_blacklist", "remove_from_blacklist", "list_blacklist", "block_deployer", "unblock_deployer", "list_blocked_deployers"]),
-  selfupdate:  new Set(["self_update"]),
+  // self_update removed from LLM tools - Telegram only
   balance:     new Set(["get_wallet_balance", "get_my_positions", "get_wallet_positions"]),
   positions:   new Set(["get_my_positions", "get_position_pnl", "get_wallet_balance", "set_position_note", "get_wallet_positions"]),
   strategy:    new Set(["list_strategies", "get_strategy", "add_strategy", "update_strategy", "delete_strategy", "remove_strategy", "set_active_strategy"]),
@@ -54,7 +53,7 @@ const INTENT_PATTERNS: Array<{ intent: string; re: RegExp }> = [
   { intent: "close",       re: /\b(close|exit|withdraw|remove liquidity|shut down)\b/i },
   { intent: "claim",       re: /\b(claim|harvest|collect)\b.*\bfee/i },
   { intent: "swap",        re: /\b(swap|convert|sell|exchange)\b/i },
-  { intent: "selfupdate",  re: /\b(self.?update|git pull|pull latest|update (the )?bot|update (the )?agent|update yourself)\b/i },
+  // self_update intent removed - Telegram only command
   { intent: "blocklist",   re: /\b(blacklist|block|unblock|blocklist|blocked deployer|rugger|block dev|block deployer)\b/i },
   { intent: "config",      re: /\b(config|setting|threshold|update|set |change)\b/i },
   { intent: "balance",     re: /\b(balance|wallet|sol|how much)\b/i },
@@ -68,7 +67,7 @@ const INTENT_PATTERNS: Array<{ intent: string; re: RegExp }> = [
   { intent: "lessons",     re: /\b(lesson|learned|teach|pin|unpin|clear lesson|what did you learn)\b/i },
 ];
 
-function getToolsForRole(agentType: string, goal = ""): typeof tools {
+export function getToolsForRole(agentType: string, goal = ""): typeof tools {
   if (agentType === "MANAGER")  return tools.filter(t => MANAGER_TOOLS.has(t.function.name));
   if (agentType === "SCREENER") return tools.filter(t => SCREENER_TOOLS.has(t.function.name));
 
@@ -103,7 +102,7 @@ const client = new OpenAI({
 
 const DEFAULT_MODEL = process.env.LLM_MODEL || "openrouter/healer-alpha";
 
-const MUTATING_TOOL_INTENTS = /\b(deploy|open position|add liquidity|lp into|invest in|close|exit|withdraw|remove liquidity|claim|harvest|collect|swap|convert|sell|exchange|block|unblock|blacklist|add smart wallet|remove smart wallet|add wallet|remove wallet|pin|unpin|clear lesson|add lesson|set active strategy|remove strategy|add strategy|set |change |update |self.?update|pull latest|git pull|update yourself)\b/i;
+const MUTATING_TOOL_INTENTS = /\b(deploy|open position|add liquidity|lp into|invest in|close|exit|withdraw|remove liquidity|claim|harvest|collect|swap|convert|sell|exchange|block|unblock|blacklist|add smart wallet|remove smart wallet|add wallet|remove wallet|pin|unpin|clear lesson|add lesson|set active strategy|remove strategy|add strategy|set |change |update )\b/i;
 const LIVE_DATA_TOOL_INTENTS = /\b(balance|wallet|position|portfolio|pnl|yield|range|show positions|open positions|screen|candidate|find pool|search|research|analyze|check pool|token holders|narrative|study top|top lpers?|lp behavior|who's lping|performance|history|stats|report|list smart wallets|list blacklist|list blocked deployers|list lessons)\b/i;
 const CONFIG_READ_ONLY_INTENTS = /\b(check|show|what(?:'s| is)?|review|inspect|see)\b.*\b(config|settings?|thresholds?)\b/i;
 const DECISION_EXPLANATION_INTENTS = /\b(why did you|why'd you|why was (?:this|that|it)|what made you|what was the reason|why no deploy|why didn't you deploy|why did you close|why did you deploy|why did you skip)\b/i;

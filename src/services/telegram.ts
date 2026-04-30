@@ -62,7 +62,7 @@ interface TelegramCallbackQuery {
   from?: { id: number };
 }
 
-function isAuthorizedIncomingMessage(msg: TelegramMessage): boolean {
+export function isAuthorizedIncomingMessage(msg: TelegramMessage): boolean {
   const incomingChatId = String(msg.chat?.id || "");
   const senderUserId = msg.from?.id != null ? String(msg.from.id) : null;
   const chatType = msg.chat?.type || "unknown";
@@ -77,17 +77,15 @@ function isAuthorizedIncomingMessage(msg: TelegramMessage): boolean {
 
   if (incomingChatId !== chatId) return false;
 
-  if (chatType !== "private" && ALLOWED_USER_IDS.size === 0) {
+  if (ALLOWED_USER_IDS.size === 0) {
     if (!_warnedMissingAllowedUsers) {
-      log("telegram_warn", "Ignoring group Telegram messages because TELEGRAM_ALLOWED_USER_IDS is not configured. Set explicit allowed user IDs for command/control.");
+      log("telegram_error", "⚠️ SECURITY: TELEGRAM_ALLOWED_USER_IDS is not set. Blocking ALL messages. Set TELEGRAM_ALLOWED_USER_IDS=<your_user_id> to authorize yourself.");
       _warnedMissingAllowedUsers = true;
     }
     return false;
   }
 
-  if (ALLOWED_USER_IDS.size > 0) {
-    if (!senderUserId || !ALLOWED_USER_IDS.has(senderUserId)) return false;
-  }
+  if (!senderUserId || !ALLOWED_USER_IDS.has(senderUserId)) return false;
 
   return true;
 }

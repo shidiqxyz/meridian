@@ -278,6 +278,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       + "  /positions          List open positions\n"
       + "  /close <n>          Close position by index\n"
       + "  /set <n> <note>     Set note on position\n"
+      + "  /update             Update bot via git pull + restart\n"
       + "  /help               Show this help\n\n"
       + "Natural language examples:\n"
       + "  Find the best pools to deploy\n"
@@ -286,6 +287,30 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       + "  Show performance report\n"
       + "  Swap all tokens to SOL"
     );
+    return;
+  }
+
+  if (text === "/update") {
+    if (process.env.ALLOW_SELF_UPDATE !== "true") {
+      await sendMessage("❌ Self-update is disabled. Set ALLOW_SELF_UPDATE=true in env to enable.");
+      return;
+    }
+    await sendMessage("🔄 Updating via git pull...");
+    try {
+      const result = execSync("git pull", { cwd: process.cwd(), encoding: "utf8" }).trim();
+      await sendMessage(`✅ Update complete:\n${result.slice(0, 500)}\n\nRestarting in 3s...`);
+      setTimeout(() => {
+        const child = spawn(process.execPath, process.argv.slice(1), {
+          detached: true,
+          stdio: "inherit",
+          cwd: process.cwd(),
+        });
+        child.unref();
+        process.exit(0);
+      }, 3000);
+    } catch (error: unknown) {
+      await sendMessage(`❌ Update failed: ${(error as Error).message}`);
+    }
     return;
   }
 

@@ -641,6 +641,9 @@ async function getPoolMetadata(poolAddress: string): Promise<{ address: string; 
 
 // ─── Get Active Bin ────────────────────────────────────────────
 export async function getActiveBin({ pool_address }: GetActiveBinArgs): Promise<GetActiveBinResult> {
+  if (!pool_address) {
+    return { success: false, error: "pool_address is required" };
+  }
   pool_address = normalizeMint(pool_address);
   const pool = await getPool(pool_address);
   const activeBin = await pool.getActiveBin();
@@ -1542,6 +1545,9 @@ export async function searchPools({ query, limit = 10 }: SearchPoolsArgs) {
 
 // ─── Claim Fees ────────────────────────────────────────────────
 export async function claimFees({ position_address }: ClaimFeesArgs): Promise<ClaimFeesResult> {
+  if (!position_address) {
+    return { success: false, error: "position_address is required" };
+  }
   position_address = normalizeMint(position_address);
   if (process.env.DRY_RUN === "true") {
     return { success: true, dry_run: true, would_claim: position_address, message: "DRY RUN — no transaction sent" };
@@ -1590,6 +1596,9 @@ export async function claimFees({ position_address }: ClaimFeesArgs): Promise<Cl
 
 // ─── Close Position ────────────────────────────────────────────
 export async function closePosition({ position_address, reason }: ClosePositionArgs): Promise<ClosePositionResult> {
+  if (!position_address) {
+    return { success: false, error: "position_address is required" };
+  }
   position_address = normalizeMint(position_address);
   const tracked = getTrackedPosition(position_address);
   if (process.env.DRY_RUN === "true") {
@@ -2185,6 +2194,12 @@ export async function addLiquidity(args: AddLiquidityArgs): Promise<AddLiquidity
 
 export async function withdrawLiquidity(args: WithdrawLiquidityArgs): Promise<WithdrawLiquidityResult> {
   const { position_address, pool_address, bps = 10000, claim_fees = true } = args;
+  if (!position_address) {
+    return { success: false, error: "position_address is required" };
+  }
+  if (bps <= 0 || bps > 10000) {
+    return { success: false, error: "bps must be between 1 and 10000" };
+  }
   if (process.env.DRY_RUN === "true") {
     return { success: true, dry_run: true, position: position_address, pool: pool_address, message: "DRY RUN — no transaction sent" };
   }

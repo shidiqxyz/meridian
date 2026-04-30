@@ -196,11 +196,12 @@ describe("executor", () => {
   });
 
   describe("self_update", () => {
-    it("is disabled by default", async () => {
-      // self_update requires ALLOW_SELF_UPDATE=true and TTY, so should be blocked
+    it("is no longer available as a tool - removed for security", async () => {
+      // self_update was removed from LLM tools for security - now Telegram-only
       const result = await executeTool("self_update", {});
-      expect(result.blocked).toBe(true);
-      expect(result.reason).toMatch(/disabled|interactive/i);
+      expect(result).toBeDefined();
+      expect(result.success).toBe(false);
+      expect(result.error).toContain("Unknown tool");
     });
   });
 

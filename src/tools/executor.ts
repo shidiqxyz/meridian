@@ -341,22 +341,6 @@ const toolMap: ToolMap = {
   get_top_lpers: (args) => studyTopLPers(args),
   study_top_lpers: (args) => studyTopLPers(args),
   set_position_note: (args) => toolSetPositionNote(args),
-  self_update: async () => {
-    const result = execSync("git pull", { cwd: process.cwd(), encoding: "utf8" }).trim();
-    if (result.includes("Already up to date")) {
-      return { success: true, updated: false, message: "Already up to date - no restart needed." };
-    }
-    setTimeout(() => {
-      const child = spawn(process.execPath, process.argv.slice(1), {
-        detached: true,
-        stdio: "inherit",
-        cwd: process.cwd(),
-      });
-      child.unref();
-      process.exit(0);
-    }, 3000);
-    return { success: true, updated: true, message: `Updated! Restarting in 3s...\n${result}` };
-  },
   get_performance_history: () => getPerformanceHistory(),
   get_recent_decisions: (args) => ({ decisions: getRecentDecisions(asNumber(args?.limit) || 6) }),
   add_strategy: (args) => addStrategy(args),
@@ -386,7 +370,7 @@ const toolMap: ToolMap = {
 };
 
 const WRITE_TOOLS = new Set(["deploy_position", "claim_fees", "close_position", "swap_token"]);
-const PROTECTED_TOOLS = new Set([...WRITE_TOOLS, "self_update"]);
+const PROTECTED_TOOLS = new Set([...WRITE_TOOLS]);
 
 function summarizeResult(result: Record<string, unknown>): Record<string, unknown> {
   const str = JSON.stringify(result);
@@ -517,15 +501,6 @@ async function runSafetyChecks(name: string, args: Record<string, unknown>): Pro
     }
   }
 
-  if (name === "self_update") {
-    if (process.env.ALLOW_SELF_UPDATE !== "true") {
-      return { pass: false, reason: "self_update is disabled by default. Set ALLOW_SELF_UPDATE=true locally to enable it." };
-    }
-    if (!process.stdin.isTTY) {
-      return { pass: false, reason: "self_update is only allowed from a local interactive TTY session." };
-    }
-  }
-
   return { pass: true };
 }
 
@@ -533,6 +508,10 @@ export async function executeTool(name: string, args: Record<string, unknown>): 
   const startedAt = Date.now();
   const normalizedName = name.replace(/<.*$/, "").trim();
   const fn = toolMap[normalizedName];
+
+  if (!fn) {
+    return { success: false, error: `Unknown tool: ${normalizedName}` };
+  }
 
   if (!fn) {
     const error = `Unknown tool: ${normalizedName}`;
