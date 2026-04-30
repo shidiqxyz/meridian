@@ -226,7 +226,8 @@ export async function agentLoop(
       let usedModel = activeModel;
       // Force a tool call on step 0 for action intents — prevents the model from inventing deploy/close outcomes
       const ACTION_INTENTS = /\b(deploy|open|add liquidity|close|exit|withdraw|claim|swap|block|unblock)\b/i;
-      let toolChoice: ChatCompletionToolChoiceOption = (!isFinalStep && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
+      const supportsRequired = !/(qwen|deepseek|gemini)/i.test(usedModel);
+      let toolChoice: ChatCompletionToolChoiceOption = (!isFinalStep && supportsRequired && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -247,7 +248,7 @@ export async function agentLoop(
             attempt -= 1;
             continue;
           }
-          if (toolChoice === "required" && isToolChoiceRequiredError(error)) {
+          if (toolChoice === "required" && (isToolChoiceRequiredError(error) || errMsg.includes("No endpoints found") || errMsg.includes("tool_choice"))) {
             toolChoice = "auto";
             log("agent", "Provider rejected tool_choice=required — retrying with tool_choice=auto");
             attempt -= 1;
