@@ -228,7 +228,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   if (!text) return;
 
   if (text === "/start") {
-    await sendMessage(
+    await sendHTML(
       "👋 <b>Welcome to Meridian DLMM LP Agent!</b>\n\n" +
       "I manage Meteora DLMM liquidity positions for you.\n\n" +
       "<b>How to use:</b>\n" +
@@ -253,12 +253,29 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     const positions = await getMyPositions().catch(() => null);
     const count = positions?.total_positions ?? 0;
     const details = positions?.positions ?? [];
-    let reply = `Open positions: ${count}\n\n`;
+    if (count === 0) {
+      await sendMessage("No open positions.");
+      return;
+    }
+    let reply = `<b>Open positions: ${count}</b>\n\n`;
     for (let i = 0; i < details.length; i++) {
       const p = details[i];
-      reply += `${i + 1}. ${p.pool_name ?? p.pool} — PnL: ${(p.pnl_pct ?? 0).toFixed(2)}%\n`;
+      const name = p.pool_name || p.pair || p.pool || "Unknown";
+      const pnlPct = p.pnl_pct ?? p.pnlPct ?? 0;
+      const pnlUsd = p.pnl_usd ?? p.pnlUsd ?? 0;
+      const totalUsd = p.total_value_usd ?? p.totalValueUsd ?? 0;
+      const unclaimedFees = p.unclaimed_fees_usd ?? p.unclaimedFeesUsd ?? 0;
+      const sign = pnlUsd >= 0 ? "+" : "";
+      const pnlEmoji = pnlPct >= 0 ? "📈" : "📉";
+      reply += `<b>${i + 1}. ${name}</b>\n`;
+      reply += `   Value: $${totalUsd.toFixed(2)}\n`;
+      reply += `   PnL: ${sign}$${Math.abs(pnlUsd).toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%) ${pnlEmoji}\n`;
+      if (unclaimedFees > 0) {
+        reply += `   Unclaimed fees: $${unclaimedFees.toFixed(2)}\n`;
+      }
+      reply += "\n";
     }
-    await sendMessage(reply);
+    await sendHTML(reply.trim());
     return;
   }
 
@@ -299,21 +316,21 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   }
 
   if (text === "/help" || text === "help") {
-    await sendMessage(
-      "Available commands:\n"
-      + "  /positions          List open positions\n"
-      + "  /close <n>          Close position by index\n"
-      + "  /set <n> <note>     Set note on position\n"
-      + "  /clear              Clear Telegram REPL session\n"
-      + "  /update             Update bot via git pull + restart\n"
-      + "  /help               Show this help\n\n"
-      + "Natural language messages use REPL with persistent session history.\n"
-      + "Examples:\n"
-      + "  Find the best pools to deploy\n"
-      + "  Close position 1\n"
-      + "  What is my wallet balance?\n"
-      + "  Show performance report\n"
-      + "  Swap all tokens to SOL"
+    await sendHTML(
+      "<b>Available commands:</b>\n"
+      + "/positions — List open positions\n"
+      + "/close &lt;n&gt; — Close position by index\n"
+      + "/set &lt;n&gt; &lt;note&gt; — Set note on position\n"
+      + "/clear — Clear Telegram REPL session\n"
+      + "/update — Update bot via git pull + restart\n"
+      + "/help — Show this help\n\n"
+      + "<b>Natural language messages</b> use REPL with persistent session history.\n"
+      + "<b>Examples:</b>\n"
+      + "• Find the best pools to deploy\n"
+      + "• Close position 1\n"
+      + "• What is my wallet balance?\n"
+      + "• Show performance report\n"
+      + "• Swap all tokens to SOL"
     );
     return;
   }
