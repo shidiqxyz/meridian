@@ -14,6 +14,7 @@ import type { Config } from "../types/config";
 import { log } from "../logger/logger";
 import { getSharedLessonsForPrompt, pushHiveLesson, pushHivePerformanceEvent } from "../../services/hivemind";
 import { sanitizeLessonText } from "../utils/sanitize";
+import { loadJson, saveJson } from "./state-utils";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USER_CONFIG_PATH = path.join(__dirname, "..", "config", "user-config.json");
@@ -24,32 +25,11 @@ const MAX_CHANGE_PER_STEP = 0.20;
 const MAX_MANUAL_LESSON_LENGTH = 400;
 
 function load(): LessonsData {
-  if (!fs.existsSync(LESSONS_FILE)) {
-    return { lessons: [], performance: [] };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(LESSONS_FILE, "utf8"));
-  } catch {
-    return { lessons: [], performance: [] };
-  }
+  return loadJson<LessonsData>(LESSONS_FILE, { lessons: [], performance: [] });
 }
 
 function save(data: LessonsData): void {
-  try {
-    const content = JSON.stringify(data, null, 2);
-    const tmpFile = `${LESSONS_FILE}.tmp`;
-    fs.writeFileSync(tmpFile, content);
-    try {
-      fs.renameSync(tmpFile, LESSONS_FILE);
-    } catch (renameErr: any) {
-      // Windows fallback: copy + unlink
-      fs.copyFileSync(tmpFile, LESSONS_FILE);
-      fs.unlinkSync(tmpFile);
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log("lessons_error", `Failed to write lessons.json: ${message}`);
-  }
+  saveJson(LESSONS_FILE, data);
 }
 
 export async function recordPerformance(perf: PerformanceRecord): Promise<void> {

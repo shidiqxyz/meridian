@@ -1,7 +1,7 @@
-import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { log } from "../logger/logger.js";
+import { loadJson, saveJson } from "./state-utils";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DECISION_LOG_FILE = path.join(__dirname, "..", "..", "decision-log.json");
@@ -40,19 +40,11 @@ interface AppendDecisionParams {
 }
 
 function load(): DecisionLog {
-  if (!fs.existsSync(DECISION_LOG_FILE)) {
-    return { decisions: [] };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(DECISION_LOG_FILE, "utf8"));
-  } catch (error: any) {
-    log("decision_log_warn", `Invalid ${DECISION_LOG_FILE}: ${error.message}`);
-    return { decisions: [] };
-  }
+  return loadJson<DecisionLog>(DECISION_LOG_FILE, { decisions: [] });
 }
 
 function save(data: DecisionLog): void {
-  fs.writeFileSync(DECISION_LOG_FILE, JSON.stringify(data, null, 2));
+  saveJson(DECISION_LOG_FILE, data);
 }
 
 function sanitize(value: unknown, maxLen = 280): string | null {

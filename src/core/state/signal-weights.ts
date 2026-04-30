@@ -9,10 +9,10 @@
  * LLM prompt so the agent can prioritize the right screening criteria.
  */
 
-import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { log } from "../logger/logger.js";
+import { loadJson, saveJson } from "./state-utils";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WEIGHTS_FILE = path.join(__dirname, "..", "..", "signal-weights.json");
@@ -66,36 +66,24 @@ interface WeightData {
 }
 
 function loadWeights(): WeightData {
-  if (!fs.existsSync(WEIGHTS_FILE)) {
-    const initial: WeightData = {
-      weights: { ...DEFAULT_WEIGHTS },
-      last_recalc: null,
-      recalc_count: 0,
-      history: [],
-    };
-    saveWeights(initial);
+  const initial: WeightData = {
+    weights: { ...DEFAULT_WEIGHTS },
+    last_recalc: null,
+    recalc_count: 0,
+    history: [],
+  };
+  const data = loadJson<WeightData>(WEIGHTS_FILE, initial);
+  // Save if file didn't exist or was corrupt (data equals initial)
+  const isInitial = data === initial || JSON.stringify(data.weights) === JSON.stringify(initial.weights);
+  if (isInitial) {
+    saveWeights(data);
     log("signal_weights", "Created signal-weights.json with default weights");
-    return initial;
   }
-  try {
-    return JSON.parse(fs.readFileSync(WEIGHTS_FILE, "utf8"));
-  } catch (err: any) {
-    log("signal_weights_error", `Failed to read signal-weights.json: ${err.message}`);
-    return {
-      weights: { ...DEFAULT_WEIGHTS },
-      last_recalc: null,
-      recalc_count: 0,
-      history: [],
-    };
-  }
+  return data;
 }
 
 function saveWeights(data: WeightData): void {
-  try {
-    fs.writeFileSync(WEIGHTS_FILE, JSON.stringify(data, null, 2));
-  } catch (err: any) {
-    log("signal_weights_error", `Failed to write signal-weights.json: ${err.message}`);
-  }
+  saveJson(WEIGHTS_FILE, data);
 }
 
 // ─── Core Algorithm ──────────────────────────────────────────────

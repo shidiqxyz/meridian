@@ -6,10 +6,10 @@
  * During screening, the active strategy's criteria guide token selection and position config.
  */
 
-import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
 import { log } from "../logger/logger.js";
+import { loadJson, saveJson } from "./state-utils";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STRATEGY_FILE = path.join(__dirname, "..", "..", "strategy-library.json");
@@ -35,16 +35,11 @@ interface StrategyDB {
 }
 
 function load(): StrategyDB {
-  if (!fs.existsSync(STRATEGY_FILE)) return { active: null, strategies: {} };
-  try {
-    return JSON.parse(fs.readFileSync(STRATEGY_FILE, "utf8"));
-  } catch {
-    return { active: null, strategies: {} };
-  }
+  return loadJson<StrategyDB>(STRATEGY_FILE, { active: null, strategies: {} });
 }
 
 function save(data: StrategyDB): void {
-  fs.writeFileSync(STRATEGY_FILE, JSON.stringify(data, null, 2));
+  saveJson(STRATEGY_FILE, data);
 }
 
 // ─── Default Strategies ─────────────────────────────────

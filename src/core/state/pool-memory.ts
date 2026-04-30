@@ -4,39 +4,21 @@
  * Keyed by pool address. Automatically updated when positions close.
  */
 
-import fs from "fs";
 import type { PoolMemory, PoolMemoryEntry, DeployRecord } from "../types/state";
 import { log } from "../logger/logger";
 import { config } from "../config/config";
 import { sanitizeStoredText } from "../utils/sanitize";
+import { loadJson, saveJson } from "./state-utils";
 
 const POOL_MEMORY_FILE = "./pool-memory.json";
 const MAX_NOTE_LENGTH = 280;
 
 function load(): PoolMemory {
-  if (!fs.existsSync(POOL_MEMORY_FILE)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(POOL_MEMORY_FILE, "utf8"));
-  } catch {
-    return {};
-  }
+  return loadJson<PoolMemory>(POOL_MEMORY_FILE, {});
 }
 
 function save(db: PoolMemory): void {
-  try {
-    const content = JSON.stringify(db, null, 2);
-    const tmpFile = `${POOL_MEMORY_FILE}.tmp`;
-    fs.writeFileSync(tmpFile, content);
-    try {
-      fs.renameSync(tmpFile, POOL_MEMORY_FILE);
-    } catch {
-      fs.copyFileSync(tmpFile, POOL_MEMORY_FILE);
-      fs.unlinkSync(tmpFile);
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log("pool_memory_error", `Failed to write pool-memory.json: ${message}`);
-  }
+  saveJson(POOL_MEMORY_FILE, db);
 }
 
 function isOorCloseReason(reason: string | null): boolean {

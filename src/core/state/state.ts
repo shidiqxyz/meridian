@@ -3,44 +3,21 @@
  *
  * Tracks position metadata that isn't available on-chain.
  */
-import fs from "fs";
 import type { Position, State, RecentEvent } from "../types/state";
 import { log } from "../logger/logger";
 import { sanitizeStoredText } from "../utils/sanitize";
+import { loadJson, saveJson } from "./state-utils";
 
 const STATE_FILE = "./state.json";
 const MAX_RECENT_EVENTS = 20;
 
 function load(): State {
-  if (!fs.existsSync(STATE_FILE)) {
-    return { positions: {}, recentEvents: [], lastUpdated: null };
-  }
-  try {
-    return JSON.parse(fs.readFileSync(STATE_FILE, "utf8"));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log("state_error", `Failed to read state.json: ${message}`);
-    return { positions: {}, recentEvents: [], lastUpdated: null };
-  }
+  return loadJson<State>(STATE_FILE, { positions: {}, recentEvents: [], lastUpdated: null });
 }
 
 function save(state: State): void {
-  try {
-    state.lastUpdated = new Date().toISOString();
-    const content = JSON.stringify(state, null, 2);
-    const tmpFile = `${STATE_FILE}.tmp`;
-    fs.writeFileSync(tmpFile, content);
-    try {
-      fs.renameSync(tmpFile, STATE_FILE);
-    } catch {
-      // Fallback for Windows where rename may fail due to file locks
-      fs.copyFileSync(tmpFile, STATE_FILE);
-      fs.unlinkSync(tmpFile);
-    }
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    log("state_error", `Failed to write state.json: ${message}`);
-  }
+  state.lastUpdated = new Date().toISOString();
+  saveJson(STATE_FILE, state);
 }
 
 function pushEvent(state: State, event: Omit<RecentEvent, "timestamp">): void {
