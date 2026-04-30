@@ -126,9 +126,9 @@ export const config: Config = {
     temperature: u.temperature ?? 0.373,
     maxTokens:   u.maxTokens   ?? 2048,
     maxSteps:    u.maxSteps    ?? 12,
-    managementModel: u.managementModel ?? process.env.LLM_MODEL ?? "deepseek/deepseek-v4-flash:nitro",
-    screeningModel:  u.screeningModel  ?? process.env.LLM_MODEL ?? "deepseek/deepseek-v4-flash:nitro",
-    generalModel:    u.generalModel    ?? process.env.LLM_MODEL ?? "deepseek/deepseek-v4-flash:nitro",
+    managementModel: u.managementModel ?? process.env.LLM_MODEL ?? "qwen/qwen3.6-flash",
+    screeningModel:  u.screeningModel  ?? process.env.LLM_MODEL ?? "qwen/qwen3.6-flash",
+    generalModel:    u.generalModel    ?? process.env.LLM_MODEL ?? "qwen/qwen3.6-flash",
   },
 
   // ─── Darwinian Signal Weighting ───────
