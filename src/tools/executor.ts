@@ -426,13 +426,19 @@ async function maybeNotifyAndAutomanage(name: string, args: Record<string, unkno
         const balances = await getWalletBalances();
         const token = balances.tokens?.find((entry) => entry.mint === baseMint);
         if (token && (token.usd ?? 0) >= 0.1) {
+          log("executor", `Auto-swapping ${token.symbol || baseMint.slice(0, 8)} (${(token.usd ?? 0).toFixed(2)}) back to SOL...`);
           const swapResult = await swapToken({ input_mint: baseMint, output_mint: "SOL", amount: token.balance });
           result.auto_swapped = true;
-          result.auto_swap_note = `Base token already auto-swapped back to SOL (${token.symbol || baseMint.slice(0, 8)} -> SOL). Do NOT call swap_token again.`;
-          if (swapResult?.amount_out) result.sol_received = swapResult.amount_out;
+          if (swapResult?.amount_out) {
+            result.sol_received = swapResult.amount_out;
+            log("executor", `Auto-swap successful: received ${swapResult.amount_out} SOL`);
+          }
+        } else if (token) {
+          result.auto_swap_note = `Base token ${token.symbol || baseMint.slice(0, 8)} value $${(token.usd ?? 0).toFixed(2)} is dust (< $0.10) — skipping auto-swap.`;
         }
       } catch (error: unknown) {
         log("executor_warn", `Auto-swap after close failed: ${(error as Error).message}`);
+        result.auto_swap_error = (error as Error).message;
       }
     }
   }

@@ -304,10 +304,14 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     }
     const p = details[idx];
     await sendMessage(`Closing position ${idx + 1}: ${p.pool_name ?? p.pool}...`);
-    const { closePosition } = await import("./tools/dlmm.js");
     try {
-      const result = await closePosition({ position_address: p.position_address });
-      await sendMessage(`Closed: ${JSON.stringify(result)}`);
+      const { executeTool } = await import("./tools/executor.js");
+      const result = await executeTool("close_position", { position_address: p.position_address });
+      const pnlPct = Number(result.pnl_pct ?? 0);
+      const pnlUsd = Number(result.pnl_usd ?? 0);
+      const solReceived = Number(result.sol_received ?? 0);
+      const reply = `🔒 Closed ${p.pool_name ?? p.pool}\nPnL: ${pnlUsd >= 0 ? "+" : ""}$${Math.abs(pnlUsd).toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)\n${solReceived > 0 ? `✅ Auto-swapped to ${solReceived.toFixed(4)} SOL` : ""}`;
+      await sendHTML(reply);
     } catch (error: unknown) {
       await sendMessage(`Close failed: ${(error as Error).message}`);
     }
