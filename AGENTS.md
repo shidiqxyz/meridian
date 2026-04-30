@@ -52,7 +52,7 @@ All source is TypeScript. Run `npx tsc --noEmit` to type-check.
 
 ## Testing
 
-Framework: **vitest** with v8 coverage. 415 tests, ~98% statement coverage.
+Framework: **vitest** with v8 coverage. 425 tests, ~98% statement coverage.
 
 ```
 npx vitest run            # Run all tests
@@ -82,8 +82,9 @@ npx vitest run --coverage # Run with coverage report
 | `test/signal-tracker.test.ts` | Signal staging and consumption |
 | `test/dlmm.test.ts` | Deploy safety checks, cooldown enforcement |
 | `test/blacklist.test.ts` | Token blacklist, dev blocklist CRUD |
-| `test/number.test.ts` | Number formatting utilities |
-| `test/utils.test.ts` | Shared utility functions |
+| `test/state-utils.test.ts` | loadJson/saveJson utility functions |
+| `test/agent.test.ts` | getToolsForRole filtering for agent roles |
+| `test/agent.test.ts` | getToolsForRole filtering for agent roles |
 
 ---
 

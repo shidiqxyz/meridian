@@ -454,7 +454,7 @@ src/
   cli.ts              CLI with JSON output for every tool
   core/
     agent/            ReAct loop, prompt building
-    config/           Runtime config, envrypt
+    config/           Runtime config, envcrypt
     cron/             Cycle scheduling
     logger/           Daily-rotating log files + action audit
     state/            Position registry, lessons, decisions, pool memory, signals
@@ -465,14 +465,15 @@ src/
     definitions.ts    Tool schemas (OpenAI format)
     executor.ts       Tool dispatch + safety checks
     dlmm.ts           Meteora DLMM SDK wrapper (deploy, close, claim, positions, PnL)
+    dlmm-types.d.ts  TypeScript types for DLMM SDK
+    state-utils.ts     Shared loadJson/saveJson utilities
     screening.ts      Pool discovery from Meteora API
     wallet.ts         SOL/token balances (Helius) + Jupiter swap
     token.ts          Token info/holders/narrative (Jupiter API)
     study.ts          Top LPer study via LPAgent API
-
-discord-listener/
-  index.ts            Selfbot Discord listener
-  pre-checks.ts       Signal pre-check pipeline
+    okx.ts            OKX OnchainOS integration
+    chart-indicators.ts Technical chart indicators
+    agent-meridian.ts Agent Meridian relay client
 ```
 
 ---
@@ -486,8 +487,7 @@ npx tsc --noEmit                 # main project
 npx tsc --noEmit -p discord-listener/tsconfig.json   # discord listener
 ```
 
-Testing with **vitest** (415 tests, ~98% coverage):
-
+Testing with **vitest** (425 tests, ~98% coverage):
 ```bash
 npx vitest run                   # run all tests
 npx vitest run --coverage        # with coverage report
