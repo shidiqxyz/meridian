@@ -16,7 +16,7 @@ import { getSharedLessonsForPrompt, pushHiveLesson, pushHivePerformanceEvent } f
 import { sanitizeLessonText } from "../utils/sanitize";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const USER_CONFIG_PATH = path.join(__dirname, "..", "..", "user-config.json");
+const USER_CONFIG_PATH = path.join(__dirname, "..", "config", "user-config.json");
 
 const LESSONS_FILE = "./lessons.json";
 const MIN_EVOLVE_POSITIONS = 5;

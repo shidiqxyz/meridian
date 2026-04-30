@@ -95,6 +95,7 @@ export interface TokenConfig {
 }
 
 export interface HiveMindConfig {
+  enabled: boolean;
   url: string | null;
   apiKey: string | null;
   agentId: string | null;
@@ -229,6 +230,7 @@ export interface UserConfig {
   excludeHighSupplyConcentration?: boolean;
   strategy?: "spot" | "curve" | "bid_ask";
   binsBelow?: number;
+  hiveMindEnabled?: boolean;
   hiveMindUrl?: string;
   hiveMindApiKey?: string;
   hiveMindPullMode?: string;

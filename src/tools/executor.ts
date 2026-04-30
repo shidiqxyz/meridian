@@ -45,7 +45,7 @@ import { log, logAction } from "../core/logger/logger.js";
 import { notifyClose, notifyDeploy, notifySwap } from "../services/telegram.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const USER_CONFIG_PATH = path.join(__dirname, "../user-config.json");
+const USER_CONFIG_PATH = path.join(__dirname, "../core/config/user-config.json");
 
 let cronRestarter: (() => void) | null = null;
 
@@ -101,6 +101,7 @@ function normalizeConfigValue(key: string, value: unknown): unknown {
     "lpAgentRelayEnabled",
     "chartIndicatorsEnabled",
     "requireAllIntervals",
+    "hiveMindEnabled",
   ]);
   const arrayKeys = new Set(["allowedLaunchpads", "blockedLaunchpads", "indicatorIntervals"]);
   const stringKeys = new Set([
@@ -244,6 +245,7 @@ function toolUpdateConfig(args: { changes: Record<string, unknown>; reason?: str
     binsBelow: ["strategy", "binsBelow"],
     hiveMindUrl: ["hiveMind", "url"],
     hiveMindApiKey: ["hiveMind", "apiKey"],
+    hiveMindEnabled: ["hiveMind", "enabled"],
     agentId: ["hiveMind", "agentId"],
     hiveMindPullMode: ["hiveMind", "pullMode"],
     publicApiKey: ["api", "publicApiKey"],

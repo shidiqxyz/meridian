@@ -4,7 +4,7 @@ import { fileURLToPath } from "url";
 import { log } from "../core/logger/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const USER_CONFIG_PATH = path.join(__dirname, "..", "user-config.json");
+const USER_CONFIG_PATH = path.join(__dirname, "..", "core", "config", "user-config.json");
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN || null;
 const BASE  = TOKEN ? `https://api.telegram.org/bot${TOKEN}` : null;
@@ -190,7 +190,7 @@ export function hasActiveLiveMessage(): boolean {
   return _liveMessageDepth > 0;
 }
 
-function createTypingIndicator() {
+export function createTypingIndicator() {
   if (!TOKEN || !chatId) {
     return { stop() {} };
   }

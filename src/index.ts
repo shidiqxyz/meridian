@@ -5,7 +5,8 @@ import { startCronJobs as startCronModule, stopCronJobs as stopCronModule } from
 import { config } from "./core/config/config.js";
 import { getMyPositions } from "./tools/dlmm.js";
 import { registerCronRestarter } from "./tools/executor.js";
-import { stopPolling, sendMessage, sendHTML, isEnabled as telegramEnabled, createLiveMessage } from "./services/telegram.js";
+import { agentLoop } from "./core/agent/agent.js";
+import { stopPolling, startPolling, sendMessage, sendHTML, isEnabled as telegramEnabled, createLiveMessage } from "./services/telegram.js";
 import { generateBriefing } from "./services/briefing.js";
 import { getLastBriefingDate, setLastBriefingDate } from "./core/state/state.js";
 import {
@@ -25,6 +26,16 @@ let screeningBusy = false;
 function stripThink(text: string | null): string | null {
   if (!text) return text;
   return text.replace(/<think>[\s\S]*?<\/think>/gi, "").trim();
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/\*(.+?)\*/g, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/^\s*[-*]\s+/gm, "• ")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/`{1,3}[^`]*`{1,3}/g, (m) => m.replace(/`/g, ""));
 }
 
 async function runBriefing(): Promise<void> {
@@ -146,6 +157,9 @@ function buildPrompt(): string {
   return `[manage: ${mgmt} | screen: ${scrn}]\n> `;
 }
 
+const replSession: Array<{ role: string; content: string }> = [];
+const replBusy = { value: false };
+
 function startREPL(): void {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -154,13 +168,148 @@ function startREPL(): void {
   });
 
   rl.prompt();
-  rl.on("line", () => {
+  rl.on("line", async (line: string) => {
+    const input = line.trim();
     rl.setPrompt(buildPrompt());
-    rl.prompt();
+    if (!input) {
+      rl.prompt();
+      return;
+    }
+    if (replBusy.value) {
+      log("repl", "Agent busy, skipping input");
+      rl.prompt();
+      return;
+    }
+    replBusy.value = true;
+    try {
+      log("repl", `User: ${input}`);
+      if (input === "/help" || input === "help") {
+        const helpText = "Available commands:\n"
+          + "  /positions          List open positions\n"
+          + "  /close <n>          Close position by index\n"
+          + "  /set <n> <note>     Set note on position\n"
+          + "  /help               Show this help\n\n"
+          + "Natural language examples:\n"
+          + "  Find the best pools to deploy\n"
+          + "  Close position 1\n"
+          + "  What is my wallet balance?\n"
+          + "  Show performance report\n"
+          + "  Swap all tokens to SOL";
+        console.log(helpText);
+        log("repl", `Agent: ${helpText}`);
+      } else {
+        const result = await agentLoop(input, undefined, replSession, "GENERAL");
+        const response = stripMarkdown(stripThink(result.content) ?? "");
+        replSession.push({ role: "user", content: input });
+        replSession.push({ role: "assistant", content: response ?? "" });
+        console.log(response);
+        log("repl", `Agent: ${response}`);
+      }
+    } catch (error: unknown) {
+      log("repl_error", `Agent loop failed: ${(error as Error).message}`);
+    } finally {
+      replBusy.value = false;
+      rl.prompt();
+    }
   });
   rl.on("close", () => {
     log("shutdown", "REPL closed");
     process.exit(0);
+  });
+}
+
+async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; callbackQueryId?: string; callbackData?: string; messageId?: number }): Promise<void> {
+  if (msg.isCallback) return;
+  const text = msg.text.trim();
+  if (!text) return;
+
+  if (text === "/positions") {
+    const positions = await getMyPositions().catch(() => null);
+    const count = positions?.total_positions ?? 0;
+    const details = positions?.positions ?? [];
+    let reply = `Open positions: ${count}\n\n`;
+    for (let i = 0; i < details.length; i++) {
+      const p = details[i];
+      reply += `${i + 1}. ${p.pool_name ?? p.pool} — PnL: ${(p.pnl_pct ?? 0).toFixed(2)}%\n`;
+    }
+    await sendMessage(reply);
+    return;
+  }
+
+  if (text.startsWith("/close ")) {
+    const idx = parseInt(text.split(" ")[1], 10) - 1;
+    const positions = await getMyPositions().catch(() => null);
+    const details = positions?.positions ?? [];
+    if (idx < 0 || idx >= details.length) {
+      await sendMessage(`Invalid index. You have ${details.length} open positions. Use /positions to list.`);
+      return;
+    }
+    const p = details[idx];
+    await sendMessage(`Closing position ${idx + 1}: ${p.pool_name ?? p.pool}...`);
+    const { closePosition } = await import("./tools/dlmm.js");
+    try {
+      const result = await closePosition({ position_address: p.position_address });
+      await sendMessage(`Closed: ${JSON.stringify(result)}`);
+    } catch (error: unknown) {
+      await sendMessage(`Close failed: ${(error as Error).message}`);
+    }
+    return;
+  }
+
+  if (text.startsWith("/set ")) {
+    const parts = text.split(" ");
+    const idx = parseInt(parts[1], 10) - 1;
+    const note = parts.slice(2).join(" ");
+    const positions = await getMyPositions().catch(() => null);
+    const details = positions?.positions ?? [];
+    if (idx < 0 || idx >= details.length) {
+      await sendMessage(`Invalid index. You have ${details.length} open positions. Use /positions to list.`);
+      return;
+    }
+    const { executeTool } = await import("./tools/executor.js");
+    await executeTool("set_position_note", { position_address: details[idx].position_address, instruction: note });
+    await sendMessage(`Note set on position ${idx + 1}: ${note}`);
+    return;
+  }
+
+  if (text === "/help" || text === "help") {
+    await sendMessage(
+      "Available commands:\n"
+      + "  /positions          List open positions\n"
+      + "  /close <n>          Close position by index\n"
+      + "  /set <n> <note>     Set note on position\n"
+      + "  /help               Show this help\n\n"
+      + "Natural language examples:\n"
+      + "  Find the best pools to deploy\n"
+      + "  Close position 1\n"
+      + "  What is my wallet balance?\n"
+      + "  Show performance report\n"
+      + "  Swap all tokens to SOL"
+    );
+    return;
+  }
+
+  const telegramSession: Array<{ role: string; content: string }> = [];
+  try {
+    const typing = await import("./services/telegram.js").then(m => m.createTypingIndicator());
+    try {
+      const result = await agentLoop(text, undefined, telegramSession, "GENERAL");
+      typing.stop();
+      const response = stripMarkdown(stripThink(result.content) ?? "");
+      await sendMessage(response ?? "No response from agent.");
+    } catch {
+      typing.stop();
+      await sendMessage("Agent error. Check logs for details.");
+    }
+  } catch {
+    await sendMessage("Failed to process message.");
+  }
+}
+
+function startTelegramBot(): void {
+  if (!telegramEnabled()) return;
+  startPolling(async (msg: any) => {
+    await handleTelegramMessage(msg);
   });
 }
 
@@ -185,6 +334,7 @@ if (process.stdin.isTTY) {
 }
 
 startCronJobs();
+startTelegramBot();
 
 if (!process.stdin.isTTY) {
   void getMyPositions().then((result) => {

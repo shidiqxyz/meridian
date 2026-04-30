@@ -6,7 +6,7 @@ import { log } from "../core/logger/logger.js";
 import { config } from "../core/config/config.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const USER_CONFIG_PATH = path.join(__dirname, "..", "user-config.json");
+const USER_CONFIG_PATH = path.join(__dirname, "..", "core", "config", "user-config.json");
 const CACHE_PATH = path.join(__dirname, "..", "hivemind-cache.json");
 const PACKAGE_JSON_PATH = path.join(__dirname, "..", "package.json");
 const HEARTBEAT_INTERVAL_MS = 15 * 60 * 1000;
@@ -127,7 +127,7 @@ export function getHiveMindPullMode(): string {
 }
 
 export function isHiveMindEnabled(): boolean {
-  return !!(getBaseUrl() && getApiKey());
+  return !!(config.hiveMind?.enabled && getBaseUrl() && getApiKey());
 }
 
 export function ensureAgentId(): string {

@@ -116,7 +116,7 @@ export async function feesCheck(mint: string) {
 
   let minFeesSol = 30;
   try {
-    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "user-config.json"), "utf8"));
+    const cfg = JSON.parse(fs.readFileSync(path.join(ROOT, "src", "core", "config", "user-config.json"), "utf8"));
     minFeesSol = cfg.screening?.minTokenFeesSol ?? cfg.minTokenFeesSol ?? 30;
   } catch { /* use default */ }
 

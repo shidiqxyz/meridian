@@ -63,7 +63,7 @@ npm install
 npm run setup
 ```
 
-The wizard walks you through creating `.env` (API keys, wallet, RPC, Telegram) and `user-config.json` (risk preset, deploy size, thresholds, models). Takes about 2 minutes.
+The wizard walks you through creating `.env` (API keys, wallet, RPC, Telegram) and `src/core/config/user-config.json` (risk preset, deploy size, thresholds, models). Takes about 2 minutes.
 
 **Or set up manually:**
 
@@ -85,17 +85,18 @@ DRY_RUN=true                            # set false for live trading
 Optional encrypted `.env` flow:
 
 ```bash
-cp .env .env.raw
+printf "WALLET_PRIVATE_KEY=...\nRPC_URL=...\nOPENROUTER_API_KEY=...\n" > .env.raw
 printf "replace-with-a-long-local-key\n" > .envrypt
 npm run env:encrypt
+rm .env.raw  # delete plaintext after encrypting
 ```
 
-Meridian loads envrypt-style encrypted values automatically. Keep `.env.raw` and `.envrypt` local; both are gitignored.
+Meridian loads envrypt-style encrypted values automatically. Keep `.envrypt` local; it is gitignored.
 
 Copy config and edit as needed:
 
 ```bash
-cp user-config.example.json user-config.json
+cp src/core/config/user-config.example.json src/core/config/user-config.json
 ```
 
 ### 3. Run
@@ -106,6 +107,18 @@ npm start      # live mode
 ```
 
 On startup Meridian fetches your wallet balance, open positions, and top pool candidates, then begins autonomous cycles immediately.
+
+---
+
+## File structure
+
+| File | Purpose |
+|------|---------|
+| `.env` | Secrets only (private key, API keys, RPC) — encrypted or plaintext |
+| `.envrypt` | Encryption key for `.env` |
+| `src/core/config/user-config.json` | All behavior settings (thresholds, intervals, toggles, models) |
+
+Secrets never go in `user-config.json` — that file contains no credentials and is safe to keep locally unencrypted.
 
 ---
 
@@ -327,7 +340,7 @@ You can also chat freely via Telegram using the same interface as the REPL.
 
 ## Config reference
 
-All fields are optional — defaults shown. Edit `user-config.json`.
+All fields are optional — defaults shown. Edit `src/core/config/user-config.json`.
 
 ### Screening
 
@@ -399,7 +412,7 @@ After 5+ positions have been closed, run:
 meridian evolve
 ```
 
-This analyzes closed position performance (win rate, avg PnL, fee yields) and automatically adjusts screening thresholds in `user-config.json`. Changes take effect immediately.
+This analyzes closed position performance (win rate, avg PnL, fee yields) and automatically adjusts screening thresholds in `src/core/config/user-config.json`. Changes take effect immediately.
 
 ---
 
@@ -413,7 +426,7 @@ HiveMind sync uses Agent Meridian by default. Shared lessons, presets, and perfo
 
 ### Disable
 
-HiveMind disable behavior needs an explicit config flag before empty strings can be used as a disable mechanism. Empty strings currently fall back to Agent Meridian defaults.
+Set `hiveMindEnabled: false` in `src/core/config/user-config.json`.
 
 ### Self-hosting
 

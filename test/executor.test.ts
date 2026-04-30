@@ -230,17 +230,29 @@ describe("executor", () => {
     });
 
     it("blocks deploy when pool already has open position", async () => {
+      const origMaxPositions = config.risk.maxPositions;
+      config.risk.maxPositions = 10;
       (dlmm.getMyPositions as any).mockResolvedValue({ total_positions: 1, positions: [{ pool: "ExistingPool" }] });
-      const result = await executeTool("deploy_position", { pool_address: "ExistingPool", amount_sol: 0.5, bin_step: 100 });
-      expect(result.blocked).toBe(true);
-      expect(result.reason).toContain("duplicate");
+      try {
+        const result = await executeTool("deploy_position", { pool_address: "ExistingPool", amount_sol: 0.5, bin_step: 100 });
+        expect(result.blocked).toBe(true);
+        expect(result.reason).toContain("duplicate");
+      } finally {
+        config.risk.maxPositions = origMaxPositions;
+      }
     });
 
     it("blocks deploy when base token already has open position", async () => {
+      const origMaxPositions = config.risk.maxPositions;
+      config.risk.maxPositions = 10;
       (dlmm.getMyPositions as any).mockResolvedValue({ total_positions: 1, positions: [{ pool: "OtherPool", base_mint: "TokenX" }] });
-      const result = await executeTool("deploy_position", { pool_address: "Pool1", base_mint: "TokenX", amount_sol: 0.5, bin_step: 100 });
-      expect(result.blocked).toBe(true);
-      expect(result.reason).toContain("One position per token");
+      try {
+        const result = await executeTool("deploy_position", { pool_address: "Pool1", base_mint: "TokenX", amount_sol: 0.5, bin_step: 100 });
+        expect(result.blocked).toBe(true);
+        expect(result.reason).toContain("One position per token");
+      } finally {
+        config.risk.maxPositions = origMaxPositions;
+      }
     });
 
     it("blocks deploy when amount_sol is zero", async () => {
@@ -262,10 +274,16 @@ describe("executor", () => {
     });
 
     it("blocks deploy when insufficient SOL balance", async () => {
-      (wallet.getWalletBalances as any).mockResolvedValue({ sol: 0.1, tokens: [] });
-      const result = await executeTool("deploy_position", { pool_address: "Pool1", amount_sol: 0.5, bin_step: 100 });
-      expect(result.blocked).toBe(true);
-      expect(result.reason).toContain("Insufficient SOL");
+      const prevDryRun = process.env.DRY_RUN;
+      delete process.env.DRY_RUN;
+      try {
+        (wallet.getWalletBalances as any).mockResolvedValue({ sol: 0.1, tokens: [] });
+        const result = await executeTool("deploy_position", { pool_address: "Pool1", amount_sol: 0.5, bin_step: 100 });
+        expect(result.blocked).toBe(true);
+        expect(result.reason).toContain("Insufficient SOL");
+      } finally {
+        process.env.DRY_RUN = prevDryRun;
+      }
     });
 
     it("allows deploy when all checks pass", async () => {

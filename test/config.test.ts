@@ -8,6 +8,30 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const USER_CONFIG_PATH = path.join(__dirname, "..", "src", "core", "config", "user-config.json");
 
 describe("computeDeployAmount", () => {
+  let savedDeployAmountSol: number;
+  let savedMaxDeployAmount: number;
+  let savedGasReserve: number;
+  let savedPositionSizePct: number;
+
+  beforeEach(() => {
+    savedDeployAmountSol = config.management.deployAmountSol;
+    savedMaxDeployAmount = config.risk.maxDeployAmount;
+    savedGasReserve = config.management.gasReserve;
+    savedPositionSizePct = config.management.positionSizePct;
+
+    config.management.deployAmountSol = 0.5;
+    config.risk.maxDeployAmount = 50;
+    config.management.gasReserve = 0.2;
+    config.management.positionSizePct = 0.35;
+  });
+
+  afterEach(() => {
+    config.management.deployAmountSol = savedDeployAmountSol;
+    config.risk.maxDeployAmount = savedMaxDeployAmount;
+    config.management.gasReserve = savedGasReserve;
+    config.management.positionSizePct = savedPositionSizePct;
+  });
+
   it("returns floor (deployAmountSol) when wallet has just enough above gas reserve", () => {
     // gasReserve=0.2, deployAmountSol=0.5, positionSizePct=0.35
     // deployable = 1 - 0.2 = 0.8, dynamic = 0.8 * 0.35 = 0.28
@@ -137,25 +161,33 @@ describe("config defaults", () => {
 describe("reloadScreeningThresholds", () => {
   let snapshot: Record<string, unknown>;
 
+  let fileExistedBefore = false;
+  let fileContentBefore: string | null = null;
+
   function saveSnapshot() {
+    fileExistedBefore = fs.existsSync(USER_CONFIG_PATH);
+    if (fileExistedBefore) fileContentBefore = fs.readFileSync(USER_CONFIG_PATH, "utf8");
+
     const s = config.screening;
     snapshot = {
       minFeeActiveTvlRatio: s.minFeeActiveTvlRatio,
-      useDiscordSignals: s.useDiscordSignals,
-      discordSignalMode: s.discordSignalMode,
-      excludeHighSupplyConcentration: s.excludeHighSupplyConcentration,
+      minTvl: s.minTvl,
+      maxTvl: s.maxTvl,
+      minVolume: s.minVolume,
       minOrganic: s.minOrganic,
       minQuoteOrganic: s.minQuoteOrganic,
       minHolders: s.minHolders,
       minMcap: s.minMcap,
       maxMcap: s.maxMcap,
-      minTvl: s.minTvl,
-      maxTvl: s.maxTvl,
-      minVolume: s.minVolume,
       minBinStep: s.minBinStep,
       maxBinStep: s.maxBinStep,
       timeframe: s.timeframe,
       category: s.category,
+      minTokenFeesSol: s.minTokenFeesSol,
+      useDiscordSignals: s.useDiscordSignals,
+      discordSignalMode: s.discordSignalMode,
+      avoidPvpSymbols: s.avoidPvpSymbols,
+      blockPvpSymbols: s.blockPvpSymbols,
       minTokenAgeHours: s.minTokenAgeHours,
       maxTokenAgeHours: s.maxTokenAgeHours,
       athFilterPct: s.athFilterPct,
@@ -172,13 +204,16 @@ describe("reloadScreeningThresholds", () => {
     for (const [key, value] of Object.entries(snapshot)) {
       (s as unknown as Record<string, unknown>)[key] = value;
     }
+
+    if (fileExistedBefore && fileContentBefore !== null) {
+      fs.writeFileSync(USER_CONFIG_PATH, fileContentBefore);
+    } else if (!fileExistedBefore && fs.existsSync(USER_CONFIG_PATH)) {
+      try { fs.unlinkSync(USER_CONFIG_PATH); } catch { /* ignore */ }
+    }
   }
 
   beforeEach(saveSnapshot);
-  afterEach(() => {
-    restoreSnapshot();
-    try { fs.unlinkSync(USER_CONFIG_PATH); } catch { /* ignore */ }
-  });
+  afterEach(restoreSnapshot);
 
   it("does nothing when user-config.json does not exist", () => {
     const original = config.screening.minTvl;

@@ -112,9 +112,9 @@ Sets defined in `src/core/agent/agent.ts`. If you add a tool, also add it to the
 
 ## Config System
 
-`src/core/config/config.ts` loads `user-config.json` at startup. Runtime mutations go through `update_config` tool (executor.ts) which:
+`src/core/config/config.ts` loads `src/core/config/user-config.json` at startup. Runtime mutations go through `update_config` tool (executor.ts) which:
 - Updates the live `config` object immediately
-- Persists to `user-config.json`
+- Persists to `src/core/config/user-config.json`
 - Restarts cron jobs if intervals changed
 
 **Valid config keys and their sections:**
@@ -144,6 +144,7 @@ Sets defined in `src/core/agent/agent.ts`. If you add a tool, also add it to the
 | managementIntervalMin | schedule | 10 |
 | screeningIntervalMin | schedule | 30 |
 | managementModel / screeningModel / generalModel | llm | openrouter/healer-alpha |
+| hiveMindEnabled | hivemind | true |
 
 **`computeDeployAmount(walletSol)`** — scales position size with wallet balance (compounding). Formula: `clamp(deployable × positionSizePct, floor=deployAmountSol, ceil=maxDeployAmount)`.
 
@@ -154,7 +155,7 @@ Sets defined in `src/core/agent/agent.ts`. If you add a tool, also add it to the
 1. **Deploy**: `deploy_position` → executor safety checks → `trackPosition()` in state.ts → Telegram notify
 2. **Monitor**: management cron → `getMyPositions()` → `getPositionPnl()` → OOR detection → pool-memory snapshots
 3. **Close**: `close_position` → `recordPerformance()` in lessons.ts → auto-swap base token to SOL → Telegram notify
-4. **Learn**: `evolveThresholds()` runs on performance data → updates config.screening → persists to user-config.json
+4. **Learn**: `evolveThresholds()` runs on performance data → updates config.screening → persists to `src/core/config/user-config.json`
 
 ---
 
@@ -232,7 +233,7 @@ const actualBaseFee = baseFactor > 0
 
 - Default model: `process.env.LLM_MODEL` or `openrouter/healer-alpha`
 - Fallback on 502/503/529: `stepfun/step-3.5-flash:free` (2nd attempt), then retry
-- Per-role models: `managementModel`, `screeningModel`, `generalModel` in user-config.json
+- Per-role models: `managementModel`, `screeningModel`, `generalModel` in `src/core/config/user-config.json`
 - LM Studio: set `LLM_BASE_URL=http://localhost:1234/v1` and `LLM_API_KEY=lm-studio`
 - `maxOutputTokens` minimum: 2048 (free models may have lower limits causing empty responses)
 

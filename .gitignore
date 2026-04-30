@@ -7,8 +7,12 @@ node_modules/
 !.env.example
 .envrypt
 
-# User config (contains RPC URL, wallet key, API keys)
-user-config.json
+# User config (canonical location: src/core/config/)
+src/core/config/user-config.json
+
+# Legacy/stale config files (should not exist, but just in case)
+src/user-config.json
+src/core/state/user-config.json
 
 # Runtime state (position tracking, lessons — user-specific)
 state.json
