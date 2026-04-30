@@ -97,7 +97,7 @@ interface DeployPositionResult {
   request_id?: string | null;
   position?: string;
   pool?: string;
-  pool_name?: string | null;
+  pool_name?: string;
   bin_range?: { min: number; max: number; active: number; bins_below?: number; bins_above?: number };
   price_range?: { min: number; max: number };
   range_coverage?: {
@@ -661,8 +661,8 @@ async function getPoolMetadata(poolAddress: string): Promise<{ address: string; 
     }
 
     const data = await res.json();
-    const tokenX = data?.token_x?.symbol || null;
-    const tokenY = data?.token_y?.symbol || null;
+    const tokenX = data?.token_x?.symbol || undefined;
+    const tokenY = data?.token_y?.symbol || undefined;
     const pair = data?.name || (tokenX && tokenY ? `${tokenX}-${tokenY}` : undefined);
     const meta = {
       address: data?.address || key,
@@ -1842,7 +1842,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
           request_id: order.requestId,
           position: position_address,
           pool: poolAddress,
-          pool_name: tracked.pool_name || poolMeta.name || null,
+          pool_name: tracked.pool_name ?? poolMeta.name ?? undefined,
           claim_txs: claimTxHashes,
           close_txs: closeTxHashes,
           txs: txHashes,
@@ -1869,7 +1869,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
         request_id: order.requestId,
         position: position_address,
         pool: poolAddress,
-        pool_name: poolMeta.name || null,
+        pool_name: poolMeta.name ?? undefined,
         claim_txs: claimTxHashes,
         close_txs: closeTxHashes,
         txs: txHashes,
@@ -2124,7 +2124,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
         success: true,
         position: position_address,
         pool: poolAddress,
-        pool_name: tracked.pool_name || poolMeta.name || null,
+        pool_name: tracked.pool_name ?? poolMeta.name ?? undefined,
         claim_txs: claimTxHashes,
         close_txs: closeTxHashes,
         txs: txHashes,
@@ -2149,7 +2149,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
       success: true,
       position: position_address,
       pool: poolAddress,
-      pool_name: poolMeta.name || null,
+      pool_name: poolMeta.name ?? undefined,
       claim_txs: claimTxHashes,
       close_txs: closeTxHashes,
       txs: txHashes,
