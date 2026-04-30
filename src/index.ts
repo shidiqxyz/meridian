@@ -80,7 +80,20 @@ export async function runManagementCycle({ silent = false }: { silent?: boolean 
     if (positions.length === 0) {
       report = "No open positions. Triggering screening cycle.";
       void runScreeningCycle().catch((error: Error) => log("cron_error", `Triggered screening failed: ${error.message}`));
+      return report;
     }
+
+    const positionsSummary = positions.map((p: any, i: number) => {
+      const name = p.pool_name || p.pair || p.pool || "Unknown";
+      const pnlPct = p.pnl_pct ?? p.pnlPct ?? 0;
+      const pnlUsd = p.pnl_usd ?? p.pnlUsd ?? 0;
+      const inRange = p.in_range ?? true;
+      return `${i + 1}. ${name} — PnL: ${pnlPct.toFixed(2)}% ($${pnlUsd.toFixed(2)}) — ${inRange ? "In Range" : "Out of Range"}`;
+    }).join("\n");
+
+    const prompt = `Management cycle: Evaluate these open positions and take action (STAY, CLOSE, CLAIM FEES, etc.):\n\n${positionsSummary}\n\nWhat action do you recommend for each position?`;
+    const result = await agentLoop(prompt, undefined, [], "MANAGER");
+    report = stripMarkdown(stripThink(result.content) ?? "Management cycle complete.");
     return report;
   } catch (error: unknown) {
     report = `Management cycle failed: ${(error as Error).message}`;
