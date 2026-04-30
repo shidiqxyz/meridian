@@ -306,10 +306,23 @@ export async function agentLoop(
 
       // If the model didn't call any tools, it's done
       if (!msg.tool_calls || msg.tool_calls.length === 0) {
-        // Hermes sometimes returns null content — pop the empty message and retry once
+        // LLM sometimes returns null content — pop the empty message and retry
         if (!msg.content) {
           messages.pop(); // remove the empty assistant message
-          log("agent", "Empty response, retrying...");
+          emptyStreak++;
+          log("agent", `Empty response (streak: ${emptyStreak}), retrying...`);
+          if (emptyStreak >= 2 && usedModel !== FALLBACK_MODEL) {
+            usedModel = FALLBACK_MODEL;
+            log("agent", `Switching to fallback model ${FALLBACK_MODEL} after ${emptyStreak} empty responses`);
+          }
+          if (emptyStreak >= 5) {
+            log("agent", "Too many empty responses, giving up");
+            return {
+              content: "The model returned empty responses repeatedly. Please try again later or check the API status.",
+              userMessage: goal,
+            };
+          }
+          await new Promise(r => setTimeout(r, emptyStreak * 2000));
           continue;
         }
         if (mustUseRealTool && !sawToolCall) {
