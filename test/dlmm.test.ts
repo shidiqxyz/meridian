@@ -176,13 +176,13 @@ describe("dlmm.ts", () => {
 
     it("withdrawLiquidity should validate bps > 10000", async () => {
       const { withdrawLiquidity } = await import("../src/tools/dlmm.js");
-      const result = await withdrawLiquidity({ position_address: "test", bps: 15000 });
+      const result = await withdrawLiquidity({ position_address: "test", pool_address: "pool", bps: 15000 });
       expect(result.success).toBe(false);
     });
 
     it("withdrawLiquidity should validate bps <= 0", async () => {
       const { withdrawLiquidity } = await import("../src/tools/dlmm.js");
-      const result = await withdrawLiquidity({ position_address: "test", bps: 0 });
+      const result = await withdrawLiquidity({ position_address: "test", pool_address: "pool", bps: 0 });
       expect(result.success).toBe(false);
     });
   });

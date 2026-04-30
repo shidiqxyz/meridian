@@ -297,7 +297,7 @@ switch (subcommand) {
     } else {
       // Fall back: scan positions to find pool
       const pos = await getMyPositions({ force: true });
-      const found = pos.positions?.find((p: { position: string; pool: string }) => p.position === positionAddress);
+      const found = pos.positions?.find((p: any) => p.position === positionAddress);
       if (!found) die("Position not found", { position: positionAddress });
       poolAddress = found.pool;
     }

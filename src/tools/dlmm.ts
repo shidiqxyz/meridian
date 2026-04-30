@@ -86,6 +86,7 @@ interface DeployPositionArgs {
   fee_tvl_ratio?: number;
   organic_score?: number;
   initial_value_usd?: number;
+  withdraw_existing?: boolean;
 }
 
 interface DeployPositionResult {
@@ -176,9 +177,9 @@ interface ClosePositionResult {
   dry_run?: boolean;
   relay?: boolean;
   request_id?: string | null;
-  position: string;
-  pool: string;
-  pool_name?: string | null;
+  position?: string;
+  pool?: string;
+  pool_name?: string;
   claim_txs?: string[];
   close_txs?: string[];
   txs?: string[];
@@ -238,6 +239,8 @@ interface GetActiveBinResult {
   binId: number;
   price: number;
   pricePerLamport: string;
+  success?: boolean;
+  error?: string;
 }
 
 interface GetMyPositionsArgs {
@@ -507,7 +510,7 @@ async function signAndSimulateRelayTransactions(
   return signed;
 }
 
-function normalizeExecutionSignatures(result: unknown): string[] {
+function normalizeExecutionSignatures(result: Record<string, any>): string[] {
   const signatures: string[] = [];
   const seen = new Set();
   for (const value of ([] as string[])
@@ -645,7 +648,7 @@ async function getPool(poolAddress: string | PublicKey) {
 setInterval(() => poolCache.clear(), 5 * 60 * 1000);
 setInterval(() => poolMetadataCache.clear(), 15 * 60 * 1000);
 
-async function getPoolMetadata(poolAddress: string): Promise<{ address: string; name: string | null; token_x_symbol: string | null; token_y_symbol: string | null }> {
+async function getPoolMetadata(poolAddress: string): Promise<{ address: string; name: string | undefined; token_x_symbol: string | undefined; token_y_symbol: string | undefined }> {
   const key = String(poolAddress);
   if (poolMetadataCache.has(key)) {
     return poolMetadataCache.get(key);
@@ -660,7 +663,7 @@ async function getPoolMetadata(poolAddress: string): Promise<{ address: string; 
     const data = await res.json();
     const tokenX = data?.token_x?.symbol || null;
     const tokenY = data?.token_y?.symbol || null;
-    const pair = data?.name || (tokenX && tokenY ? `${tokenX}-${tokenY}` : null);
+    const pair = data?.name || (tokenX && tokenY ? `${tokenX}-${tokenY}` : undefined);
     const meta = {
       address: data?.address || key,
       name: pair,
@@ -672,7 +675,7 @@ async function getPoolMetadata(poolAddress: string): Promise<{ address: string; 
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     log("pool_meta_warn", `Pool metadata lookup failed for ${key.slice(0, 8)}: ${message}`);
-    const fallback = { address: key, name: null, token_x_symbol: null, token_y_symbol: null };
+    const fallback = { address: key, name: undefined, token_x_symbol: undefined, token_y_symbol: undefined };
     poolMetadataCache.set(key, fallback);
     return fallback;
   }
@@ -681,7 +684,7 @@ async function getPoolMetadata(poolAddress: string): Promise<{ address: string; 
 // ─── Get Active Bin ────────────────────────────────────────────
 export async function getActiveBin({ pool_address }: GetActiveBinArgs): Promise<GetActiveBinResult> {
   if (!pool_address) {
-    return { success: false, error: "pool_address is required" };
+    return { binId: 0, price: 0, pricePerLamport: "0", success: false, error: "pool_address is required" };
   }
   pool_address = normalizeMint(pool_address);
   const pool = await getPool(pool_address);
@@ -920,8 +923,8 @@ export async function deployPosition(args: DeployPositionArgs): Promise<DeployPo
       appendDecision({
         type: "deploy",
         actor: "SCREENER",
-        pool: poolAddress,
-        pool_name,
+        pool: poolAddress!,
+        pool_name: pool_name ?? undefined,
         position: positionAddress,
         summary: `Relay deployed ${finalAmountY} SOL with ${activeStrategy}`,
         reason: `Chosen range ${minBinId}→${maxBinId} around active bin ${activeBin.binId}`,
@@ -945,8 +948,8 @@ export async function deployPosition(args: DeployPositionArgs): Promise<DeployPo
         relay: true,
         request_id: order.requestId,
         position: positionAddress,
-        pool: poolAddress,
-        pool_name,
+        pool: poolAddress!,
+        pool_name: pool_name ?? undefined,
         bin_range: { min: minBinId, max: maxBinId, active: activeBin.binId },
         price_range: { min: minPrice, max: maxPrice },
         range_coverage: {
@@ -1229,7 +1232,7 @@ export async function getPositionPnl({ pool_address, position_address }: GetPosi
 }
 
 function safeNum(value: unknown): number {
-  const n = parseFloat(value ?? 0);
+  const n = parseFloat(String(value ?? 0));
   return Number.isFinite(n) ? n : 0;
 }
 
@@ -1636,7 +1639,7 @@ export async function claimFees({ position_address }: ClaimFeesArgs): Promise<Cl
 // ─── Close Position ────────────────────────────────────────────
 export async function closePosition({ position_address, reason }: ClosePositionArgs): Promise<ClosePositionResult> {
   if (!position_address) {
-    return { success: false, error: "position_address is required" };
+    return { success: false, error: "position_address is required", position: "", pool: "" };
   }
   position_address = normalizeMint(position_address);
   const tracked = getTrackedPosition(position_address);

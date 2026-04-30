@@ -29,8 +29,8 @@ interface DecisionLog {
 interface AppendDecisionParams {
   type?: string;
   actor?: string;
-  pool?: string;
-  pool_name?: string;
+  pool?: string | null;
+  pool_name?: string | null;
   position?: string;
   summary?: string;
   reason?: string;

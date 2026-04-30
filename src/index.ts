@@ -1,5 +1,6 @@
 import "./core/config/envcrypt.js";
 import readline from "readline";
+import { execSync, spawn } from "child_process";
 import { log } from "./core/logger/logger.js";
 import { startCronJobs as startCronModule, stopCronJobs as stopCronModule } from "./core/cron/cron.js";
 import { config } from "./core/config/config.js";
