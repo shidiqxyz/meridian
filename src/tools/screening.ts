@@ -369,7 +369,13 @@ export async function discoverPools({ page_size = 50 }: { page_size?: number } =
   };
 }
 
-export async function getTopCandidates({ limit = 10 }: { limit?: number } = {}): Promise<{ total_screened?: number; candidates: PoolData[]; filtered_examples?: FilteredReason[] }> {
+export async function pickBestCandidate(): Promise<PoolData | null> {
+  const { candidates } = await getTopCandidates({ limit: 3 });
+  if (candidates.length === 0) return null;
+  return candidates.sort((a, b) => scoreCandidate(b) - scoreCandidate(a))[0];
+}
+
+export async function getTopCandidates({ limit = 3 }: { limit?: number } = {}): Promise<{ total_screened?: number; candidates: PoolData[]; filtered_examples?: FilteredReason[] }> {
   const discovered = await discoverPools({ page_size: 50 });
   const pools = discovered.pools || [];
   const filteredOut: FilteredReason[] = [];

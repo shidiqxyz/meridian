@@ -208,8 +208,14 @@ export async function agentLoop(
   let noToolRetryCount = 0;
 
   let emptyStreak = 0;
-  for (let step = 0; step < maxSteps; step++) {
-    log("agent", `Step ${step + 1}/${maxSteps}`);
+  let toolSteps = 0;
+  for (let step = 0; step < maxSteps + 1; step++) {
+    const isFinalStep = toolSteps >= maxSteps;
+    if (isFinalStep) {
+      log("agent", `Final response step (after ${toolSteps} tool steps)`);
+    } else {
+      log("agent", `Step ${toolSteps + 1}/${maxSteps}`);
+    }
 
     try {
       const activeModel = model || DEFAULT_MODEL;
@@ -220,7 +226,7 @@ export async function agentLoop(
       let usedModel = activeModel;
       // Force a tool call on step 0 for action intents — prevents the model from inventing deploy/close outcomes
       const ACTION_INTENTS = /\b(deploy|open|add liquidity|close|exit|withdraw|claim|swap|block|unblock)\b/i;
-      let toolChoice: ChatCompletionToolChoiceOption = (step === 0 && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
+      let toolChoice: ChatCompletionToolChoiceOption = (!isFinalStep && (ACTION_INTENTS.test(goal) || mustUseRealTool)) ? "required" : "auto";
 
       for (let attempt = 0; attempt < 3; attempt++) {
         try {
@@ -323,7 +329,8 @@ export async function agentLoop(
         return { content: msg.content, userMessage: goal };
       }
       sawToolCall = true;
-
+      toolSteps++;
+      
       // Execute each tool call in parallel
       const toolResults = await Promise.all(msg.tool_calls.map(async (toolCall: any) => {
         const functionName = toolCall.function.name.replace(/<.*$/, "").trim();
