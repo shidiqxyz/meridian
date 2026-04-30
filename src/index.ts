@@ -161,6 +161,9 @@ function buildPrompt(): string {
 const replSession: Array<{ role: string; content: string }> = [];
 const replBusy = { value: false };
 
+const telegramSession: Array<{ role: string; content: string }> = [];
+const telegramBusy = { value: false };
+
 function startREPL(): void {
   const rl = readline.createInterface({
     input: process.stdin,
@@ -224,6 +227,28 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   const text = msg.text.trim();
   if (!text) return;
 
+  if (text === "/start") {
+    await sendMessage(
+      "👋 <b>Welcome to Meridian DLMM LP Agent!</b>\n\n" +
+      "I manage Meteora DLMM liquidity positions for you.\n\n" +
+      "<b>How to use:</b>\n" +
+      "• Send natural language messages — I have a persistent REPL session with context memory\n" +
+      "• Use /positions to see open positions\n" +
+      "• Use /close &lt;n&gt; to close a position by index\n" +
+      "• Use /set &lt;n&gt; &lt;note&gt; to tag a position\n" +
+      "• Use /clear to reset my conversation memory\n" +
+      "• Use /help for full command list\n\n" +
+      "<b>Examples you can send:</b>\n" +
+      "• Find the best pools to deploy\n" +
+      "• What is my wallet balance?\n" +
+      "• Show performance report\n" +
+      "• Close position 1\n" +
+      "• Swap all tokens to SOL\n\n" +
+      "Type / to see all commands in the menu."
+    );
+    return;
+  }
+
   if (text === "/positions") {
     const positions = await getMyPositions().catch(() => null);
     const count = positions?.total_positions ?? 0;
@@ -279,9 +304,11 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       + "  /positions          List open positions\n"
       + "  /close <n>          Close position by index\n"
       + "  /set <n> <note>     Set note on position\n"
+      + "  /clear              Clear Telegram REPL session\n"
       + "  /update             Update bot via git pull + restart\n"
       + "  /help               Show this help\n\n"
-      + "Natural language examples:\n"
+      + "Natural language messages use REPL with persistent session history.\n"
+      + "Examples:\n"
       + "  Find the best pools to deploy\n"
       + "  Close position 1\n"
       + "  What is my wallet balance?\n"
@@ -315,20 +342,37 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     return;
   }
 
-  const telegramSession: Array<{ role: string; content: string }> = [];
+  if (text === "/clear") {
+    telegramSession.length = 0;
+    await sendMessage("Telegram REPL session cleared.");
+    return;
+  }
+
+  if (telegramBusy.value) {
+    await sendMessage("Agent is busy processing another request. Please wait...");
+    return;
+  }
+
+  telegramBusy.value = true;
   try {
+    log("telegram_repl", `User: ${text}`);
     const typing = await import("./services/telegram.js").then(m => m.createTypingIndicator());
     try {
       const result = await agentLoop(text, undefined, telegramSession, "GENERAL");
       typing.stop();
       const response = stripMarkdown(stripThink(result.content) ?? "");
+      telegramSession.push({ role: "user", content: text });
+      telegramSession.push({ role: "assistant", content: response ?? "" });
       await sendMessage(response ?? "No response from agent.");
+      log("telegram_repl", `Agent: ${response}`);
     } catch {
       typing.stop();
       await sendMessage("Agent error. Check logs for details.");
     }
-  } catch {
-    await sendMessage("Failed to process message.");
+  } catch (error: unknown) {
+    await sendMessage(`Error: ${(error as Error).message}`);
+  } finally {
+    telegramBusy.value = false;
   }
 }
 
@@ -337,6 +381,7 @@ function startTelegramBot(): void {
   startPolling(async (msg: any) => {
     await handleTelegramMessage(msg);
   });
+  void import("./services/telegram.js").then(m => m.registerCommands());
 }
 
 async function shutdown(signal: string): Promise<void> {

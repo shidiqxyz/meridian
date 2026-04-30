@@ -328,11 +328,19 @@ Meridian sends notifications automatically for:
 
 ### Telegram commands
 
+Meridian registers commands with Telegram so typing `/` shows a menu. Available commands:
+
 | Command | Action |
 |---|---|
+| `/start` | Welcome message with usage guide |
+| `/help` | Full command list |
 | `/positions` | List open positions with progress bar |
 | `/close <n>` | Close position by list index |
 | `/set <n> <note>` | Set a note on a position |
+| `/clear` | Clear Telegram REPL session history |
+| `/update` | Update bot via git pull + restart |
+
+**Persistent REPL session**: Natural language messages sent via Telegram use a persistent REPL session with conversation history — the agent remembers context across messages. Use `/clear` to reset the session.
 
 You can also chat freely via Telegram using the same interface as the REPL.
 

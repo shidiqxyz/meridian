@@ -189,13 +189,21 @@ bins_below = round(35 + (volatility / 5) * 34), clamped to [35, 69]
 
 ## Telegram Commands
 
-Handled directly in `src/index.ts` (bypass LLM):
+Handled directly in `src/index.ts` (bypass LLM). Commands are registered with Telegram via `setMyCommands` so typing `/` shows a menu.
 
 | Command | Action |
 |---------|--------|
+| `/start` | Welcome message with usage guide |
+| `/help` | Full command list |
 | `/positions` | List open positions with progress bar |
 | `/close <n>` | Close position by list index |
 | `/set <n> <note>` | Set note on position by list index |
+| `/clear` | Clear Telegram REPL session history |
+| `/update` | Update bot via git pull + restart |
+
+**Persistent REPL session**: Natural language messages use a persistent `telegramSession` array (like the console REPL's `replSession`). The agent remembers conversation context across messages. Use `/clear` to reset.
+
+**Session state**: `telegramSession` and `telegramBusy` are module-level variables in `src/index.ts:164-165`. Busy check prevents concurrent agent invocations.
 
 Progress bar format: `[████████░░░░░░░░░░░░] 40%` (no bin numbers, no arrows)
 

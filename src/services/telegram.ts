@@ -431,6 +431,25 @@ export function stopPolling(): void {
   _polling = false;
 }
 
+export async function registerCommands(): Promise<void> {
+  if (!TOKEN) return;
+  const commands = [
+    { command: "start", description: "Show welcome menu" },
+    { command: "help", description: "Show all commands" },
+    { command: "positions", description: "List open positions" },
+    { command: "close", description: "Close position by index: /close 1" },
+    { command: "set", description: "Set note on position: /set 1 <note>" },
+    { command: "clear", description: "Clear REPL session history" },
+    { command: "update", description: "Update bot via git pull + restart" },
+  ];
+  try {
+    await postTelegramRaw("setMyCommands", { commands });
+    log("telegram", "Registered bot commands for / menu");
+  } catch (e: any) {
+    log("telegram_error", `Failed to register commands: ${e.message}`);
+  }
+}
+
 // ─── Notification helpers ────────────────────────────────────────
 interface DeployNotification {
   pair: string;
