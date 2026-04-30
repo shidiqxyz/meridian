@@ -167,19 +167,27 @@ const heliusKey = await ask(
 );
 
 // Section 2: Telegram
-console.log("\n-- Telegram (optional — skip to disable) --");
+  console.log("\n-- Telegram (optional — skip to disable) --");
 
-const telegramToken = await ask(
-  "Telegram bot token",
-  alreadySet(ev("TELEGRAM_BOT_TOKEN", ""))
-);
+  const telegramToken = await ask(
+    "Telegram bot token (from @BotFather)",
+    alreadySet(ev("TELEGRAM_BOT_TOKEN", ""))
+  );
 
-const telegramChatId = await ask(
-  "Telegram chat ID",
-  ev("TELEGRAM_CHAT_ID", e("telegramChatId", ""))
-);
+  const telegramChatId = await ask(
+    "Telegram chat ID (auto-filled on first message, or set manually)",
+    alreadySet(ev("TELEGRAM_CHAT_ID", ""))
+  );
 
-// Section 3: Preset
+  const allowedUserIds = await ask(
+    "Allowed Telegram user IDs (comma-separated, leave empty for public access)",
+    alreadySet(ev("TELEGRAM_ALLOWED_USER_IDS", ""))
+  );
+  if (allowedUserIds && !existingEnv["TELEGRAM_ALLOWED_USER_IDS"]) {
+    console.log("  Tip: When ALLOWED_USER_IDS is empty, ALL messages are blocked. Set this after first /start.");
+  }
+
+  // Section 3: Preset
 type PresetChoice = { label: string; key: string };
 const presetChoice = await askChoice("Select a risk preset:", [
   { label: "Degen    — 30m timeframe, pumping tokens allowed, fast cycles. High risk/reward.", key: "degen" },
