@@ -901,7 +901,7 @@ export async function deployPosition(args: DeployPositionArgs): Promise<DeployPo
         (position) => position.pool === poolAddress && position.lower_bin === minBinId && position.upper_bin === maxBinId,
       ) || refreshed?.positions?.find((position) => position.pool === poolAddress);
 
-      const positionAddress = matching?.position || null;
+      const positionAddress = matching?.position ?? undefined;
       if (positionAddress) {
         trackPosition({
           position: positionAddress,
