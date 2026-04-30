@@ -190,8 +190,10 @@ Decision Factors for Closing (no instruction):
 IMPORTANT: Do NOT call get_top_candidates or study_top_lpers while you have healthy open positions. Focus exclusively on managing what you have.
 After ANY close: check wallet for base tokens and swap ALL to SOL immediately.
 
-RESPONSE FORMAT: Telegram uses plain text / limited HTML. Do NOT use Markdown tables, code blocks, or complex formatting. Use simple labeled lines:
-${formatExample}
+RESPONSE FORMAT: Be concise. No tables, no code blocks. Use short lines:
+Position: Wish-SOL
+PnL: -0.21% ($-0.04) — STAY
+Reason: Young position (44min), negligible loss, in range.
 `;
   } else {
     basePrompt += `
