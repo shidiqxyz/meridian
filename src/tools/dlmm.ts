@@ -31,6 +31,44 @@ import { agentMeridianJson, getAgentIdForRequests, getAgentMeridianHeaders } fro
 
 // ─── Types ─────────────────────────────────────────────────────
 
+// DLMM SDK Position interface
+interface DLMMPosition {
+  position: string;
+  positionAddress?: string;
+  lower_bin?: number;
+  upper_bin?: number;
+  lowerBinId?: number;
+  upperBinId?: number;
+  liquidity?: any;
+  positionLiquidity?: string;
+  [key: string]: any;
+}
+
+// Pool metadata from Meteora API
+interface PoolMetadata {
+  address?: string;
+  pool_address?: string;
+  name?: string;
+  tvl?: number;
+  volume?: number;
+  fee_tvl_ratio?: number;
+  bin_step?: number;
+  [key: string]: any;
+}
+
+// Bin data for position PnL calculation
+interface BinData {
+  positionBinData?: Array<{ positionLiquidity?: string; [key: string]: any }>;
+  [key: string]: any;
+}
+
+// LP Agent position data
+interface LpAgentPosition {
+  positionAddress?: string;
+  pnlPct?: number;
+  [key: string]: any;
+}
+
 interface DeployPositionArgs {
   pool_address: string;
   amount_sol?: number;
@@ -107,7 +145,7 @@ interface PnlResult {
 interface PositionsResult {
   wallet: string | null;
   total_positions: number;
-  positions: any[];
+  positions: DLMMPosition[];
   error?: string;
   request_id?: string | null;
 }
@@ -469,7 +507,7 @@ async function signAndSimulateRelayTransactions(
   return signed;
 }
 
-function normalizeExecutionSignatures(result: any): string[] {
+function normalizeExecutionSignatures(result: unknown): string[] {
   const signatures: string[] = [];
   const seen = new Set();
   for (const value of ([] as string[])
@@ -631,8 +669,9 @@ async function getPoolMetadata(poolAddress: string): Promise<{ address: string; 
     };
     poolMetadataCache.set(key, meta);
     return meta;
-  } catch (error: any) {
-    log("pool_meta_warn", `Pool metadata lookup failed for ${key.slice(0, 8)}: ${error.message}`);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("pool_meta_warn", `Pool metadata lookup failed for ${key.slice(0, 8)}: ${message}`);
     const fallback = { address: key, name: null, token_x_symbol: null, token_y_symbol: null };
     poolMetadataCache.set(key, fallback);
     return fallback;
@@ -1139,7 +1178,7 @@ export async function getPositionPnl({ pool_address, position_address }: GetPosi
         walletAddress,
         agentId: getAgentIdForRequests(),
       });
-      const p = payload?.positions?.find((position: any) => position.position === position_address);
+      const p = payload?.positions?.find((position: DLMMPosition) => position.position === position_address);
       if (p) {
         return {
           pnl_usd: p.pnl_usd,
@@ -1189,12 +1228,12 @@ export async function getPositionPnl({ pool_address, position_address }: GetPosi
   }
 }
 
-function safeNum(value: any): number {
+function safeNum(value: unknown): number {
   const n = parseFloat(value ?? 0);
   return Number.isFinite(n) ? n : 0;
 }
 
-function normalizeRelayPosition(position: any): any {
+function normalizeRelayPosition(position: DLMMPosition): DLMMPosition {
   if (!position || typeof position !== "object") return position;
   if (!config.management.solMode) return position;
 
@@ -1214,7 +1253,7 @@ function normalizeRelayPosition(position: any): any {
   };
 }
 
-function deriveOpenPnlPct(binData: any, solMode = false): number | null {
+function deriveOpenPnlPct(binData: BinData, solMode = false): number | null {
   if (!binData) return null;
 
   const deposit = solMode
@@ -1239,7 +1278,7 @@ function deriveOpenPnlPct(binData: any, solMode = false): number | null {
   return (pnl / deposit) * 100;
 }
 
-function deriveLpAgentPnlPct(lpData: any, solMode = false): number | null {
+function deriveLpAgentPnlPct(lpData: LpAgentPosition, solMode = false): number | null {
   if (!lpData) return null;
   const deposit = solMode ? safeNum(lpData.inputNative) : safeNum(lpData.inputValue);
   if (deposit <= 0) return null;
@@ -1262,7 +1301,7 @@ async function fetchOpenPositionsFromMeridian({ walletAddress, agentId }: { wall
   return {
     ...payload,
     positions: Array.isArray(payload?.positions)
-      ? payload.positions.map((position: any) => normalizeRelayPosition(position))
+      ? payload.positions.map((position: DLMMPosition) => normalizeRelayPosition(position))
       : [],
   };
 }
@@ -1290,7 +1329,7 @@ export async function getMyPositions({ force = false, silent = false }: GetMyPos
           agentId: getAgentIdForRequests(),
         });
         const normalizedPositions = Array.isArray(result.positions) ? result.positions : [];
-        syncOpenPositions(normalizedPositions.map((p: any) => p.position));
+        syncOpenPositions(normalizedPositions.map((p: DLMMPosition) => p.position));
         _positionsCache = {
           wallet: walletAddress,
           total_positions: Number(result.total_positions || 0),
@@ -1318,9 +1357,9 @@ export async function getMyPositions({ force = false, silent = false }: GetMyPos
 
     // Fetch bin data (lowerBinId, upperBinId, poolActiveBinId) for all pools in parallel
     // Needed for rules 3 & 4 (active_bin vs upper_bin comparison)
-    const binDataByPool: Record<string, Record<string, any>> = {};
-    const pnlMaps = await Promise.all(pools.map((pool: any) => fetchDlmmPnlForPool(pool.poolAddress, walletAddress)));
-    pools.forEach((pool: any, i: number) => { binDataByPool[pool.poolAddress] = pnlMaps[i]; });
+    const binDataByPool: Record<string, Record<string, BinData>> = {};
+    const pnlMaps = await Promise.all(pools.map((pool: PoolMetadata) => fetchDlmmPnlForPool(pool.poolAddress || pool.address!, walletAddress)));
+    pools.forEach((pool: PoolMetadata, i: number) => { binDataByPool[pool.poolAddress || pool.address!] = pnlMaps[i]; });
     const lpAgentByPosition = await fetchLpAgentOpenPositions(walletAddress);
 
     const positions = [];
@@ -1530,7 +1569,7 @@ export async function searchPools({ query, limit = 10 }: SearchPoolsArgs) {
   return {
     query,
     total: pools.length,
-    pools: pools.map((p: any) => ({
+    pools: pools.map((p: PoolMetadata) => ({
       pool: p.address || p.pool_address,
       name: p.name,
       bin_step: p.bin_step ?? p.dlmm_params?.bin_step,
@@ -1621,7 +1660,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
         config.tokens.SOL,
       ];
       const livePositions = await getMyPositions({ force: true, silent: true });
-      const livePosition = livePositions?.positions?.find((position: any) => position.position === position_address);
+      const livePosition = livePositions?.positions?.find((position: DLMMPosition) => position.position === position_address);
       const closeFromBinId = livePosition?.lower_bin ?? -887272;
       const closeToBinId = livePosition?.upper_bin ?? 887272;
       const closeOutput = "allToken1";
@@ -1985,7 +2024,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
           const res = await fetch(closedUrl);
           if (res.ok) {
             const data = await res.json();
-            const posEntry = (data.positions || []).find((p: any) => p.positionAddress === position_address);
+            const posEntry = (data.positions || []).find((p: DLMMPosition) => p.positionAddress === position_address);
             if (posEntry) {
               const nextPnlUsd = parseFloat(posEntry.pnlUsd || 0);
               const nextPnlPct = parseFloat(posEntry.pnlPctChange || 0);
@@ -2016,7 +2055,7 @@ export async function closePosition({ position_address, reason }: ClosePositionA
       }
       // Fallback to pre-close cache snapshot if closed API had no data
       if (finalValueUsd === 0) {
-        const cachedPos = _positionsCache?.positions?.find((p: any) => p.position === position_address);
+        const cachedPos = _positionsCache?.positions?.find((p: DLMMPosition) => p.position === position_address);
         if (cachedPos) {
           pnlUsd        = cachedPos.pnl_true_usd ?? cachedPos.pnl_usd ?? 0;
           pnlPct        = cachedPos.pnl_pct   ?? 0;
@@ -2127,7 +2166,7 @@ async function lookupPoolForPosition(position_address: string, walletAddress: st
   if (tracked?.pool) return tracked.pool;
 
   // Check in-memory positions cache
-  const cached = _positionsCache?.positions?.find((p: any) => p.position === position_address);
+  const cached = _positionsCache?.positions?.find((p: DLMMPosition) => p.position === position_address);
   if (cached?.pool) return cached.pool;
 
   // SDK scan (last resort)
