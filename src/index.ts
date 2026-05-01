@@ -124,7 +124,16 @@ export async function runScreeningCycle({ silent = false }: { silent?: boolean }
   timers.screeningLastRun = Date.now();
 
   try {
-    return "Screening cycle complete.";
+    const { agentLoop } = await import("./core/agent/agent.js");
+    const result = await agentLoop(
+      "Screening cycle: find the best pool and deploy to it using deploy_position.",
+      undefined,
+      [], // fresh session for cron-triggered actions
+      "SCREENER"
+    );
+    const reply = stripMarkdown(stripThink(result.content) ?? "");
+    if (!silent) log("cron", `Screening cycle: ${reply.slice(0, 200)}`);
+    return reply || "Screening cycle complete.";
   } catch (error: unknown) {
     const report = `Screening cycle failed: ${(error as Error).message}`;
     log("cron_error", report);
