@@ -68,12 +68,34 @@ Use this instead of discover_pools for screening cycles.`,
           }
         }
       }
+      }
+    },
+
+  // ══════════════════════════════════════
+  //  SCREENING TOOLS
+  // ══════════════════════════════════════
+  {
+    type: "function",
+    function: {
+      name: "pick_best_candidate",
+      description: `Pick the single best pool using pre-filtering and scoring.
+Returns the top pool with all details needed for deployment:
+- pool address, name, tokens, bin_step, volatility
+- fee_tvl_ratio, organic_score, mcap, holders
+- score (0-100), already passed all hard filters.
+
+Use this instead of get_top_candidates when you want just 1 pool.
+No parameters needed — pre-filtered to 3, scored, returns top 1.`,
+      parameters: {
+        type: "object",
+        properties: {},
+      }
     }
   },
 
-  // ════════════════════════════════════════
-  //  POSITION DEPLOYMENT TOOLS
-  // ════════════════════════════════════════
+  // ══════════════════════════════════════
+  //  POSITION DEPLOYMENT TOOLS  
+  // ══════════════════════════════════════
   {
     type: "function",
     function: {

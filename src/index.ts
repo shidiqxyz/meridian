@@ -340,6 +340,8 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   if (text === "/help" || text === "help") {
     await sendHTML(
       "<b>Available commands:</b>\n"
+      + "/deploy — Pick best pool and deploy\n"
+      + "/balance — Check wallet balance\n"
       + "/positions — List open positions\n"
       + "/close &lt;n&gt; — Close position by index\n"
       + "/set &lt;n&gt; &lt;note&gt; — Set note on position\n"
@@ -354,6 +356,43 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       + "• Show performance report\n"
       + "• Swap all tokens to SOL"
     );
+    return;
+  }
+
+    if (text === "/deploy") {
+    try {
+      const { executeTool } = await import("./tools/executor.js");
+      const result = await executeTool("pick_best_candidate", {});
+      const name = String(result.pool_name || result.pool || "Unknown");
+      const amount = Number(result.amount_sol ?? result.amount_y ?? 0);
+      const position = String(result.position || "");
+      const txs = (result.tx || result.txs || []) as any[];
+      const tx = String(Array.isArray(txs) ? txs[0] : txs || "");
+      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: ${tx.slice(0, 16)}...`);
+    } catch (error: unknown) {
+      await sendMessage(`Deploy failed: ${(error as Error).message}`);
+    }
+    return;
+  }
+
+  if (text === "/balance") {
+    try {
+      const { getWalletBalances } = await import("./tools/wallet.js");
+      const balances = await getWalletBalances();
+      let reply = `<b>Wallet Balance:</b>\n`;
+      reply += `SOL: ${balances.sol} ($${balances.sol_usd?.toFixed(2)})\n`;
+      reply += `Total USD: $${balances.total_usd?.toFixed(2)}\n\n`;
+      if (balances.tokens?.length > 0) {
+        reply += `<b>Other tokens:</b>\n`;
+        for (const t of balances.tokens) {
+          const mintShort = t.mint ? t.mint.slice(0, 8) : "unknown";
+        reply += `${t.symbol || mintShort}: ${t.balance} ($${t.usd_value?.toFixed(2)})\n`;
+        }
+      }
+      await sendHTML(reply.trim());
+    } catch (error: unknown) {
+      await sendMessage(`Balance check failed: ${(error as Error).message}`);
+    }
     return;
   }
 

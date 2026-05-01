@@ -3,7 +3,8 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { execSync, spawn } from "child_process";
 import type { ToolMap } from "../core/types/tools.js";
-import { discoverPools, getPoolDetail, getTopCandidates } from "./screening.js";
+import {
+  discoverPools, getPoolDetail, getTopCandidates, pickBestCandidate } from "./screening.js";
 import {
   getActiveBin,
   deployPosition,
@@ -320,6 +321,7 @@ function toolUpdateConfig(args: { changes: Record<string, unknown>; reason?: str
 const toolMap: ToolMap = {
   discover_pools: (args) => discoverPools(args),
   get_top_candidates: (args) => getTopCandidates(args),
+  pick_best_candidate: () => pickBestCandidate(),
   get_pool_detail: (args) => getPoolDetail(args),
   get_position_pnl: (args) => getPositionPnl(args),
   get_active_bin: (args) => getActiveBin(args),
