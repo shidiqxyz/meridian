@@ -362,13 +362,18 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     if (text === "/deploy") {
     try {
       const { executeTool } = await import("./tools/executor.js");
-      const result = await executeTool("pick_best_candidate", {});
-      const name = String(result.pool_name || result.pool || "Unknown");
+      const best = await executeTool("pick_best_candidate", {});
+      const poolAddress = String(best.pool_address || best.pool || "");
+      if (!poolAddress) throw new Error("No pool found");
+      await sendMessage(`Deploying to ${best.pool_name || best.pool || "Unknown"}...`);
+      const result = await executeTool("deploy_position", { pool_address: poolAddress });
+      const name = String(result.pool_name || result.pool_address || poolAddress);
       const amount = Number(result.amount_sol ?? result.amount_y ?? 0);
       const position = String(result.position || "");
       const txs = (result.tx || result.txs || []) as any[];
       const tx = String(Array.isArray(txs) ? txs[0] : txs || "");
-      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: ${tx.slice(0, 16)}...`);
+      const txShort = tx ? `${tx.slice(0, 8)}...${tx.slice(-8)}` : "N/A";
+      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: https://solscan.io/tx/${tx}\nClick: ${txShort}`);
     } catch (error: unknown) {
       await sendMessage(`Deploy failed: ${(error as Error).message}`);
     }
