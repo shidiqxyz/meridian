@@ -190,10 +190,21 @@ Decision Factors for Closing (no instruction):
 IMPORTANT: Do NOT call get_top_candidates or study_top_lpers while you have healthy open positions. Focus exclusively on managing what you have.
 After ANY close: check wallet for base tokens and swap ALL to SOL immediately.
 
-RESPONSE FORMAT: Be concise. No tables, no code blocks. Use short lines:
-Position: Wish-SOL
-PnL: -0.21% ($-0.04) — STAY
-Reason: Young position (44min), negligible loss, in range.
+RESPONSE FORMAT: Use this EXACT format for Telegram (HTML allowed):
+
+<b>Management Cycle Report</b>
+
+<b>Position 1: {name}</b>
+  PnL: {pnl_pct}% (${pnl_usd})  {in_range ? "✅ In Range" : "❌ Out of Range"}
+  Fee/TVL 24h: {fee_tvl}%  Age: {age} min
+  Unclaimed Fees: ${fees}
+
+<b>Decision: {STAY|CLOSE|CLAIM} ✅</b>
+Reason: {one-line reason}
+
+---
+
+<b>Summary:</b> {n} position(s) → {n} STAY, {m} CLOSE, {k} CLAIM
 `;
   } else {
     basePrompt += `
