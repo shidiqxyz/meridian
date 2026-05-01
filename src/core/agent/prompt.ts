@@ -190,23 +190,29 @@ Decision Factors for Closing (no instruction):
 IMPORTANT: Do NOT call get_top_candidates or study_top_lpers while you have healthy open positions. Focus exclusively on managing what you have.
 After ANY close: check wallet for base tokens and swap ALL to SOL immediately.
 
-RESPONSE FORMAT: You MUST use this EXACT format (HTML tags allowed for Telegram):
+RESPONSE FORMAT - YOU MUST FOLLOW EXACTLY:
 
 <b>Management Cycle Report</b>
 
-<b>Position 1: NAME</b>
-  PnL: PCT% ($USD)
-  Status: ✅ In Range  OR  ❌ Out of Range
-  Fee/TVL 24h: FEE_PCT%
-  Age: AGE min
-  Unclaimed Fees: $FEES
+<b>Position Analysis: Dragon-SOL</b>
+  PnL: +6.21% ($1.04)
+  Status: ✅ In Range
+  Fee/TVL 24h: 62.23%
+  Age: 194 min
+  Unclaimed Fees: $1.41
 
-<b>Decision: STAY|CLOSE|CLAIM ✅</b>
-Reason: ONE_LINE_REASON
+<b>Decision: STAY ✅</b>
+Reason: PnL below 10% target, in range, fees below $5 claim threshold
 
 ---
 
-<b>Summary:</b> N position(s) → X STAY, Y CLOSE, Z CLAIM
+<b>Summary:</b> 1 position(s) → 1 STAY, 0 CLOSE, 0 CLAIM
+
+RULES:
+- NO tables, NO markdown, NO code blocks, NO bullet points
+- NO "Evaluating positions..." preamble
+- Use ONLY the format above with real values
+- One-line Reason (max 100 chars)
 `;
   } else {
     basePrompt += `
