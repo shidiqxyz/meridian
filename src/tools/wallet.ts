@@ -219,6 +219,11 @@ export async function swapToken({ input_mint, output_mint, amount }: SwapParams)
   input_mint = normalizeMint(input_mint);
   output_mint = normalizeMint(output_mint);
 
+  // Guard against undefined mints
+  if (!input_mint || !output_mint || input_mint === "undefined" || output_mint === "undefined") {
+    return { input_mint: input_mint || "undefined", output_mint: output_mint || "undefined", amount_in: amount, error: "Invalid mint: undefined or empty" };
+  }
+
   if (process.env.DRY_RUN === "true") {
     return {
       dry_run: true,
