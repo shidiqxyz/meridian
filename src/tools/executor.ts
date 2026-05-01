@@ -490,24 +490,25 @@ async function runSafetyChecks(name: string, args: Record<string, unknown>): Pro
     }
 
     const amountY = asNumber(args.amount_y ?? args.amount_sol) ?? 0;
-    // If amount_y not provided, skip amount checks — dlmm.ts will compute it via computeDeployAmount()
-    if (amountY > 0) {
-      const minDeploy = Math.max(0.1, config.management.deployAmountSol);
-      if (amountY < minDeploy) {
-        return { pass: false, reason: `Amount ${amountY} SOL is below the minimum deploy amount (${minDeploy} SOL).` };
-      }
-      if (amountY > config.risk.maxDeployAmount) {
-        return { pass: false, reason: `SOL amount ${amountY} exceeds maximum allowed per position (${config.risk.maxDeployAmount}).` };
-      }
-      if (process.env.DRY_RUN !== "true") {
-        const balance = await getWalletBalances();
-        const minRequired = amountY + config.management.gasReserve;
-        if (balance.sol < minRequired) {
-          return {
-            pass: false,
-            reason: `Insufficient SOL: have ${balance.sol} SOL, need ${minRequired} SOL (${amountY} deploy + ${config.management.gasReserve} gas reserve).`,
-          };
-        }
+    if (amountY <= 0) {
+      return { pass: false, reason: "Must provide a positive SOL amount (amount_y)." };
+    }
+    const minDeploy = Math.max(0.1, config.management.deployAmountSol);
+    if (amountY < minDeploy) {
+      return { pass: false, reason: `Amount ${amountY} SOL is below the minimum deploy amount (${minDeploy} SOL).` };
+    }
+    if (amountY > config.risk.maxDeployAmount) {
+      return { pass: false, reason: `SOL amount ${amountY} exceeds maximum allowed per position (${config.risk.maxDeployAmount}).` };
+    }
+
+    if (process.env.DRY_RUN !== "true") {
+      const balance = await getWalletBalances();
+      const minRequired = amountY + config.management.gasReserve;
+      if (balance.sol < minRequired) {
+        return {
+          pass: false,
+          reason: `Insufficient SOL: have ${balance.sol} SOL, need ${minRequired} SOL (${amountY} deploy + ${config.management.gasReserve} gas reserve).`,
+        };
       }
     }
   }
