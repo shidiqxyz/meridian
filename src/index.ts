@@ -342,6 +342,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       "<b>Available commands:</b>\n"
       + "/deploy — Pick best pool and deploy\n"
       + "/balance — Check wallet balance\n"
+      + "/swap — Swap all tokens to SOL\n"
       + "/positions — List open positions\n"
       + "/close &lt;n&gt; — Close position by index\n"
       + "/set &lt;n&gt; &lt;note&gt; — Set note on position\n"
@@ -353,7 +354,6 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       + "• Find the best pools to deploy\n"
       + "• Close position 1\n"
       + "• What is my wallet balance?\n"
-      + "• Show performance report\n"
       + "• Swap all tokens to SOL"
     );
     return;
@@ -397,6 +397,22 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       await sendHTML(reply.trim());
     } catch (error: unknown) {
       await sendMessage(`Balance check failed: ${(error as Error).message}`);
+    }
+    return;
+  }
+
+  if (text === "/swap") {
+    await sendMessage("Swapping all tokens to SOL...");
+    try {
+      const { executeTool } = await import("./tools/executor.js");
+      const result = await executeTool("swap_token", { from: "ALL", to: "SOL", amount: 0 });
+      if (result.error) {
+        await sendMessage(`Swap skipped: ${result.error}`);
+      } else {
+        await sendMessage(`✅ Swap complete!`);
+      }
+    } catch (error: unknown) {
+      await sendMessage(`Swap failed: ${(error as Error).message}`);
     }
     return;
   }
