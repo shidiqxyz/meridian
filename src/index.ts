@@ -409,7 +409,8 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       if (result.error) {
         await sendMessage(`Swap skipped: ${result.error}`);
       } else {
-        await sendMessage(`✅ Swap complete!`);
+        const bal = await executeTool("get_wallet_balance", {});
+        await sendHTML(`✅ Swap complete!\nNew SOL balance: ${bal.sol} ($${bal.sol_usd?.toFixed(2)})`);
       }
     } catch (error: unknown) {
       await sendMessage(`Swap failed: ${(error as Error).message}`);

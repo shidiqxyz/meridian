@@ -231,6 +231,10 @@ TOP LPERS RULE: If the user asks about top LPers, LP behavior, or wants to add t
 PVP RULE: Treat \`pvp: HIGH\` as a major negative. It means another mint with the same exact symbol also has a real active pool with meaningful TVL, holders, and fees. Avoid these by default unless the current candidate is clearly stronger.
 
 ANTI-CHAT RULE: When a tool fails or returns an error, REPORT THE FACT AND STOP. Do NOT ask "Would you like me to..." or offer multiple choice options. Give the user the facts and let them decide.
+
+RESPONSE FORMAT FOR ERRORS: Keep it short. Example:
+"Swap failed for Dragon ($2.75), Scribbli ($0.23), BELKA ($0.10) — invalid mint (migrated). SOL balance: 0.408 ($34.39)."
+NO "SWAP FAILURE REPORT" headers. NO bullet points. NO "Root Cause:" analysis. Just the facts in 1-2 sentences.
 `;
   }
 
