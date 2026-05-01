@@ -124,7 +124,9 @@ export async function runScreeningCycle({ silent = false }: { silent?: boolean }
   timers.screeningLastRun = Date.now();
 
   try {
-    return "Screening cycle complete.";
+    const result = await agentLoop("deploy to the best pool", undefined, [], "SCREENER");
+    const report = stripMarkdown(stripThink(result.content) ?? "Screening cycle complete.");
+    return report;
   } catch (error: unknown) {
     const report = `Screening cycle failed: ${(error as Error).message}`;
     log("cron_error", report);
