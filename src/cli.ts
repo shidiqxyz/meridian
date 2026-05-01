@@ -211,6 +211,16 @@ Shows pending Discord signal queue from the discord-listener process.
 Output: { count, pending, processed, signals: [{id, symbol, pool, author, channel, queued_at, rug_score, status}] }
 \`\`\`
 
+### meridian setup
+Interactively configures all required environment variables.
+Prompts for: WALLET_PRIVATE_KEY, RPC_URL, OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, JUPITER_API_KEY, HELIUS_API_KEY.
+Saves to .env in current directory.
+
+### meridian setup
+Interactively configures all required environment variables.
+Prompts for: WALLET_PRIVATE_KEY, RPC_URL, OPENROUTER_API_KEY, TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, JUPITER_API_KEY, HELIUS_API_KEY.
+Saves to .env in current directory.
+
 ### meridian start [--dry-run]
 Starts the autonomous agent with cron jobs (management + screening).
 
@@ -265,9 +275,16 @@ const { values: flags } = parseArgs({
 
 // ─── Commands ─────────────────────────────────────────────────────
 
-switch (subcommand) {
+  switch (subcommand) {
 
-  // ── balance ──────────────────────────────────────────────────────
+  // ── setup ──────────────────────────────────────
+  case "setup": {
+    const { runSetup } = await import("./setup.js");
+    out(await runSetup());
+    break;
+  }
+
+  // ── balance ──────────────────────────────────────
   case "balance": {
     const { getWalletBalances } = await import("./tools/wallet.js");
     out(await getWalletBalances());

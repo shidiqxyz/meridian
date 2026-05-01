@@ -20,11 +20,11 @@ describe("Integration Tests", () => {
   describe("wallet.ts", () => {
     describe("normalizeMint", () => {
       it("normalizes various SOL representations to wrapped SOL mint", () => {
-        expect(normalizeMint("SOL")).toBe("So11111111111111111111111111111112");
-        expect(normalizeMint("native")).toBe("So11111111111111111111111111111112");
-        expect(normalizeMint("So11111111111111111111111111111112")).toBe("So11111111111111111111111111111112");
-        expect(normalizeMint("So1")).toBe("So11111111111111111111111111111112");
-        expect(normalizeMint("So1234567890123456789012345678901234")).toBe("So11111111111111111111111111111112");
+        expect(normalizeMint("SOL")).toBe("So11111111111111111111111111111111111111112");
+        expect(normalizeMint("native")).toBe("So11111111111111111111111111111111111111112");
+        expect(normalizeMint("So11111111111111111111111111111111111111112")).toBe("So11111111111111111111111111111111111111112");
+        expect(normalizeMint("So1")).toBe("So11111111111111111111111111111111111111112");
+        expect(normalizeMint("So1234567890123456789012345678901234")).toBe("So11111111111111111111111111111111111111112");
       });
 
       it("leaves non-SOL mints unchanged", () => {
@@ -37,14 +37,14 @@ describe("Integration Tests", () => {
       it("returns dry run result when DRY_RUN is true", async () => {
         process.env.DRY_RUN = "true";
         const result = await swapToken({
-          input_mint: "So11111111111111111111111111111112",
-          output_mint: "EPjFWdd5AufqSSqeMqeiNukk1B242nS",
+          input_mint: "So11111111111111111111111111111111111111112",
+          output_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
           amount: 0.1,
         });
         expect(result.dry_run).toBe(true);
         expect(result.would_swap).toEqual({
-          input_mint: "So11111111111111111111111111111112",
-          output_mint: "EPjFWdd5AufqSSqeMqeiNukk1B242nS",
+          input_mint: "So11111111111111111111111111111111111111112",
+          output_mint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
           amount: 0.1,
         });
       });
