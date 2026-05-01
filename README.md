@@ -332,17 +332,19 @@ Meridian registers commands with Telegram so typing `/` shows a menu. Available 
 
 | Command | Action |
 |---------|--------|
-| `/start` | Welcome message with usage guide |
+| `/start` | Welcome message with usage guide + command list |
 | `/help` | Full command list |
-| `/deploy` | Pick best pool and deploy using `pick_best_candidate` |
+| `/deploy` | Pick best pool via `pick_best_candidate` → `deploy_position` |
 | `/balance` | Check wallet balance (SOL + token balances) |
-| `/positions` | List open positions with progress bar |
-| `/close <n>` | Close position by list index |
+| `/positions` | List open positions (token pair, USD value, PnL, fees) |
+| `/close <n>` | Close position by list index (auto-swaps to SOL) |
 | `/set <n> <note>` | Set note on position by list index |
 | `/clear` | Clear Telegram REPL session history |
 | `/update` | Update bot via git pull + restart |
 
 **Persistent REPL session**: Natural language messages use a persistent `telegramSession` array (like the console REPL's `replSession`). The agent remembers conversation context across messages. Use `/clear` to reset.
+
+**Message formatting**: Uses `sendHTML()` for bold text (Telegram HTML mode, not Markdown).
 
 You can also chat freely via Telegram using the same interface as the REPL.
 
@@ -396,11 +398,16 @@ All fields are optional — defaults shown. Edit `src/core/config/user-config.js
 
 | Field | Default | Description |
 |---|---|---|
-| `managementModel` | `openai/gpt-oss-20b:free` | LLM for management cycles |
-| `screeningModel` | `openai/gpt-oss-20b:free` | LLM for screening cycles |
-| `generalModel` | `openai/gpt-oss-20b:free` | LLM for REPL / chat |
+| `managementModel` | `qwen/qwen3.5-flash` | LLM for management cycles |
+| `screeningModel` | `qwen/qwen3.5-flash` | LLM for screening cycles |
+| `generalModel` | `qwen/qwen3.5-flash` | LLM for REPL / chat |
 
 > Override model at runtime: `meridian config set screeningModel anthropic/claude-opus-4-5`
+
+**Model settings:**
+- `maxSteps: 12` (agent loop max iterations)
+- Timeout: 60s per LLM call
+- Retry logic: "Premature close", empty responses → retry with delay
 
 ---
 
@@ -475,7 +482,6 @@ src/
     definitions.ts    Tool schemas (OpenAI format)
     executor.ts       Tool dispatch + safety checks
     dlmm.ts           Meteora DLMM SDK wrapper (deploy, close, claim, positions, PnL)
-    dlmm-types.d.ts  TypeScript types for DLMM SDK
     state-utils.ts     Shared loadJson/saveJson utilities
     screening.ts      Pool discovery from Meteora API
     wallet.ts         SOL/token balances (Helius) + Jupiter swap

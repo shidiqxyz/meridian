@@ -190,21 +190,23 @@ Decision Factors for Closing (no instruction):
 IMPORTANT: Do NOT call get_top_candidates or study_top_lpers while you have healthy open positions. Focus exclusively on managing what you have.
 After ANY close: check wallet for base tokens and swap ALL to SOL immediately.
 
-RESPONSE FORMAT: Use this EXACT format for Telegram (HTML allowed):
+RESPONSE FORMAT: You MUST use this EXACT format (HTML tags allowed for Telegram):
 
 <b>Management Cycle Report</b>
 
-<b>Position 1: {name}</b>
-  PnL: {pnl_pct}% (${pnl_usd})  {in_range ? "✅ In Range" : "❌ Out of Range"}
-  Fee/TVL 24h: {fee_tvl}%  Age: {age} min
-  Unclaimed Fees: ${fees}
+<b>Position 1: NAME</b>
+  PnL: PCT% ($USD)
+  Status: ✅ In Range  OR  ❌ Out of Range
+  Fee/TVL 24h: FEE_PCT%
+  Age: AGE min
+  Unclaimed Fees: $FEES
 
-<b>Decision: {STAY|CLOSE|CLAIM} ✅</b>
-Reason: {one-line reason}
+<b>Decision: STAY|CLOSE|CLAIM ✅</b>
+Reason: ONE_LINE_REASON
 
 ---
 
-<b>Summary:</b> {n} position(s) → {n} STAY, {m} CLOSE, {k} CLAIM
+<b>Summary:</b> N position(s) → X STAY, Y CLOSE, Z CLAIM
 `;
   } else {
     basePrompt += `

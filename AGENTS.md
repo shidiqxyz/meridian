@@ -175,7 +175,7 @@ Before `deploy_position` executes:
 
 ## bins_below Calculation (SCREENER)
 
-Linear formula based on pool volatility (set in screener prompt, `src/index.ts`):
+Linear formula based on pool volatility (set in screener prompt, `src/core/agent/prompt.ts`):
 
 ```
 bins_below = round(35 + (volatility / 5) * 34), clamped to [35, 69]
@@ -193,12 +193,12 @@ Handled directly in `src/index.ts` (bypass LLM). Commands are registered with Te
 
 | Command | Action |
 |---------|--------|
-| `/start` | Welcome message with usage guide |
+| `/start` | Welcome message with usage guide + command list |
 | `/help` | Full command list |
-| `/deploy` | Pick best pool and deploy using `pick_best_candidate` |
+| `/deploy` | Pick best pool via `pick_best_candidate` → `deploy_position` |
 | `/balance` | Check wallet balance (SOL + token balances) |
-| `/positions` | List open positions with progress bar |
-| `/close <n>` | Close position by list index |
+| `/positions` | List open positions (token pair, USD value, PnL, fees) |
+| `/close <n>` | Close position by list index (auto-swaps to SOL) |
 | `/set <n> <note>` | Set note on position by list index |
 | `/clear` | Clear Telegram REPL session |
 | `/update` | Update bot via git pull + restart |
@@ -207,7 +207,7 @@ Handled directly in `src/index.ts` (bypass LLM). Commands are registered with Te
 
 **Session state**: `telegramSession` and `telegramBusy` are module-level variables in `src/index.ts:164-165`. Busy check prevents concurrent agent invocations.
 
-Progress bar format: `[████████░░░░░░░░░░░░] 40%` (no bin numbers, no arrows)
+**Message formatting**: Uses `sendHTML()` for bold text (Telegram HTML mode, not Markdown).
 
 ---
 
@@ -242,11 +242,12 @@ const actualBaseFee = baseFactor > 0
 
 ## Model Configuration
 
-- Default model: `process.env.LLM_MODEL` or `openrouter/healer-alpha`
-- Fallback on 502/503/529: `stepfun/step-3.5-flash:free` (2nd attempt), then retry
+- Default model: `process.env.LLM_MODEL` or `qwen/qwen3.5-flash` (stable on OpenRouter)
+- `maxSteps: 12` (agent loop max iterations), timeout: 60s
 - Per-role models: `managementModel`, `screeningModel`, `generalModel` in `src/core/config/user-config.json`
 - LM Studio: set `LLM_BASE_URL=http://localhost:1234/v1` and `LLM_API_KEY=lm-studio`
-- `maxOutputTokens` minimum: 2048 (free models may have lower limits causing empty responses)
+- Retry logic: "Premature close", empty responses, `tool_choice` errors → retry with delay
+- Rate limit handling: 429/529 → sleep 10s and retry
 
 ---
 
