@@ -136,6 +136,7 @@ Sets defined in `src/core/agent/agent.ts`. If you add a tool, also add it to the
 | maxTop10Pct | screening | 60 |
 | blockedLaunchpads | screening | [] |
 | deployAmountSol | management | 0.5 |
+| fixedDeployAmount | management | false |
 | maxDeployAmount | risk | 50 |
 | maxPositions | risk | 3 |
 | gasReserve | management | 0.2 |

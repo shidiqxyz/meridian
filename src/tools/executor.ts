@@ -224,6 +224,7 @@ function toolUpdateConfig(args: { changes: Record<string, unknown>; reason?: str
     minAgeBeforeYieldCheck: ["management", "minAgeBeforeYieldCheck"],
     minSolToOpen: ["management", "minSolToOpen"],
     deployAmountSol: ["management", "deployAmountSol"],
+    fixedDeployAmount: ["management", "fixedDeployAmount"],
     gasReserve: ["management", "gasReserve"],
     positionSizePct: ["management", "positionSizePct"],
     trailingTakeProfit: ["management", "trailingTakeProfit"],
@@ -475,7 +476,11 @@ async function runSafetyChecks(name: string, args: Record<string, unknown>): Pro
     }
 
     const positions = await getMyPositions({ force: true });
-    if (positions.total_positions >= config.risk.maxPositions) {
+    // Also check local state for positions marked closed but still on-chain
+    const { getStateSummary } = await import("../core/state/state.js");
+    const stateSummary = getStateSummary();
+    const effectivePositions = Math.max(positions.total_positions, stateSummary.open_positions);
+    if (effectivePositions >= config.risk.maxPositions) {
       return { pass: false, reason: `Max positions (${config.risk.maxPositions}) reached. Close a position first.` };
     }
 

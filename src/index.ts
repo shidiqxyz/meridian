@@ -241,7 +241,7 @@ function startREPL(): void {
 
 async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; callbackQueryId?: string; callbackData?: string; messageId?: number }): Promise<void> {
   if (msg.isCallback) return;
-  const text = msg.text.trim();
+  let text = msg.text.trim();
   if (!text) return;
 
   // Direct triggers that bypass the LLM
@@ -322,7 +322,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   }
 
   if (text === "/positions") {
-    const positions = await getMyPositions().catch(() => null);
+    const positions = await getMyPositions({ force: true }).catch(() => null);
     const count = positions?.total_positions ?? 0;
     const details = positions?.positions ?? [];
     if (count === 0) {
@@ -350,26 +350,54 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     return;
   }
 
-  if (text.startsWith("/close ")) {
-    const idx = parseInt(text.split(" ")[1], 10) - 1;
-    const positions = await getMyPositions().catch(() => null);
+  if (text.startsWith("/close")) {
+    const parts = text.split(" ");
+    const idx = parts.length > 1 ? parseInt(parts[1], 10) - 1 : 0;
+    const positions = await getMyPositions({ force: true }).catch(() => null);
     const details = positions?.positions ?? [];
     if (idx < 0 || idx >= details.length) {
       await sendMessage(`Invalid index. You have ${details.length} open positions. Use /positions to list.`);
       return;
     }
     const p = details[idx];
-    await sendMessage(`Closing position ${idx + 1}: ${p.pool_name ?? p.pool}...`);
+    await sendMessage(`Closing position ${idx + 1}: ${p.pool_name ?? p.pool} via LLM...`);
+
+    // Let LLM handle the close
+    const closeMessage = `close position ${idx + 1}`;
     try {
-      const { executeTool } = await import("./tools/executor.js");
-      const result = await executeTool("close_position", { position_address: p.position_address });
-      const pnlPct = Number(result.pnl_pct ?? 0);
-      const pnlUsd = Number(result.pnl_usd ?? 0);
-      const solReceived = Number(result.sol_received ?? 0);
-      const reply = `🔒 Closed ${p.pool_name ?? p.pool}\nPnL: ${pnlUsd >= 0 ? "+" : ""}$${Math.abs(pnlUsd).toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)\n${solReceived > 0 ? `✅ Auto-swapped to ${solReceived.toFixed(4)} SOL` : ""}`;
-      await sendHTML(reply);
-      // Trigger screening cycle after close to find new positions
-      void runScreeningCycle().catch((error: Error) => log("cron_error", `Triggered screening failed: ${error.message}`));
+      const agentResult = await agentLoop(closeMessage, undefined, telegramSession, "GENERAL");
+      const response = stripMarkdown(stripThink(agentResult.content) ?? "");
+      telegramSession.push({ role: "user", content: closeMessage });
+      telegramSession.push({ role: "assistant", content: response ?? "" });
+      await sendMessage(response ?? "Close completed.");
+
+      // Wait for position to fully disappear from API
+      await sendMessage("⏳ Waiting for position to close on-chain...");
+      let attempts = 0;
+      const maxAttempts = 10;
+      let stillOpen = true;
+      while (attempts < maxAttempts && stillOpen) {
+        await new Promise(r => setTimeout(r, 3000)); // Wait 3s between checks
+        const check = await getMyPositions({ force: true }).catch(() => null);
+        stillOpen = check?.positions?.some((pos: any) => pos.position === p.position_address) ?? false;
+        attempts++;
+      }
+
+      if (stillOpen) {
+        await sendMessage("⚠️ Position still shows as open on-chain. Skipping auto-deploy.");
+      } else {
+        // Auto-deploy after close
+        await sendMessage("🔍 Looking for new pool to deploy...");
+        try {
+          const deployResult = await agentLoop("deploy to the best pool", undefined, telegramSession, "GENERAL");
+          const deployResponse = stripMarkdown(stripThink(deployResult.content) ?? "");
+          telegramSession.push({ role: "user", content: "deploy to the best pool" });
+          telegramSession.push({ role: "assistant", content: deployResponse ?? "" });
+          await sendMessage(deployResponse ?? "Deploy completed.");
+        } catch (error: unknown) {
+          await sendMessage(`Auto-deploy failed: ${(error as Error).message}`);
+        }
+      }
     } catch (error: unknown) {
       await sendMessage(`Close failed: ${(error as Error).message}`);
     }
@@ -415,25 +443,9 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   }
 
     if (text === "/deploy") {
-    try {
-      const { executeTool } = await import("./tools/executor.js");
-      const best = await executeTool("pick_best_candidate", {});
-      const poolAddress = String(best.pool_address || best.pool || "");
-      if (!poolAddress) throw new Error("No pool found");
-      await sendMessage(`Deploying to ${best.pool_name || best.pool || "Unknown"}...`);
-      const result = await executeTool("deploy_position", { pool_address: poolAddress });
-      const name = String(result.pool_name || result.pool_address || poolAddress);
-      const amount = Number(result.amount_sol ?? result.amount_y ?? result.amount_x ?? 0);
-      const position = String(result.position || "");
-      const txs = (result.txs || result.tx || []) as any[];
-      const tx = String(Array.isArray(txs) ? (txs[0] || "") : (txs || ""));
-      const txLink = tx ? `https://solscan.io/tx/${tx}` : "N/A";
-      const txShort = tx ? `${tx.slice(0, 8)}...${tx.slice(-8)}` : "N/A";
-      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: ${txLink}\nClick: ${txShort}`);
-    } catch (error: unknown) {
-      await sendMessage(`Deploy failed: ${(error as Error).message}`);
-    }
-    return;
+    // Forward to LLM agent instead of executing directly
+    text = "deploy to the best pool";
+    // Fall through to LLM handling below
   }
 
   if (text === "/balance") {
@@ -497,6 +509,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     log("telegram_repl", `User: ${text}`);
     const typing = await import("./services/telegram.js").then(m => m.createTypingIndicator());
     try {
+      const positionsBefore = await getMyPositions().catch(() => ({ total_positions: 0 }));
       const result = await agentLoop(text, undefined, telegramSession, "GENERAL");
       typing.stop();
       const response = stripMarkdown(stripThink(result.content) ?? "");
@@ -504,6 +517,17 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       telegramSession.push({ role: "assistant", content: response ?? "" });
       await sendMessage(response ?? "No response from agent.");
       log("telegram_repl", `Agent: ${response}`);
+
+      // Auto-deploy if position was closed
+      const positionsAfter = await getMyPositions().catch(() => ({ total_positions: 0 }));
+      if (positionsBefore.total_positions > positionsAfter.total_positions) {
+        await sendMessage("🔍 Looking for new pool to deploy...");
+        const agentResult = await agentLoop("deploy to the best pool", undefined, telegramSession, "GENERAL");
+        const deployResponse = stripMarkdown(stripThink(agentResult.content) ?? "");
+        telegramSession.push({ role: "user", content: "deploy to the best pool" });
+        telegramSession.push({ role: "assistant", content: deployResponse ?? "" });
+        await sendMessage(deployResponse ?? "Deploy completed.");
+      }
     } catch {
       typing.stop();
       await sendMessage("Agent error. Check logs for details.");

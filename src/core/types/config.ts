@@ -48,6 +48,7 @@ export interface ManagementConfig {
   minAgeBeforeYieldCheck: number;
   minSolToOpen: number;
   deployAmountSol: number;
+  fixedDeployAmount: boolean;
   gasReserve: number;
   positionSizePct: number;
   trailingTakeProfit: boolean;
@@ -195,6 +196,7 @@ export interface UserConfig {
   minAgeBeforeYieldCheck?: number;
   minSolToOpen?: number;
   deployAmountSol?: number;
+  fixedDeployAmount?: boolean;
   gasReserve?: number;
   positionSizePct?: number;
   trailingTakeProfit?: boolean;

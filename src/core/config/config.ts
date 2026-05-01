@@ -99,6 +99,7 @@ export const config: Config = {
     minAgeBeforeYieldCheck: u.minAgeBeforeYieldCheck ?? 60,
     minSolToOpen:          u.minSolToOpen          ?? 0.55,
     deployAmountSol:       u.deployAmountSol       ?? 0.5,
+    fixedDeployAmount:     u.fixedDeployAmount     ?? false,
     gasReserve:            u.gasReserve            ?? 0.2,
     positionSizePct:       u.positionSizePct       ?? 0.35,
     trailingTakeProfit:    u.trailingTakeProfit    ?? true,
