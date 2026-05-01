@@ -436,6 +436,8 @@ export async function registerCommands(): Promise<void> {
   const commands = [
     { command: "start", description: "Show welcome menu" },
     { command: "help", description: "Show all commands" },
+    { command: "deploy", description: "Pick best pool and deploy" },
+    { command: "balance", description: "Check wallet balance" },
     { command: "positions", description: "List open positions" },
     { command: "close", description: "Close position by index: /close 1" },
     { command: "set", description: "Set note on position: /set 1 <note>" },
