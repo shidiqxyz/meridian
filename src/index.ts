@@ -77,14 +77,15 @@ export async function runManagementCycle({ silent = false }: { silent?: boolean 
     ? await createLiveMessage("Management Cycle", "Evaluating positions...")
     : null;
 
-  try {
-    const livePositions = await getMyPositions({ force: true }).catch(() => null);
-    const positions = livePositions?.positions || [];
-    if (positions.length === 0) {
-      report = "No open positions.";
-      managementBusy = false;
-      return report;
-    }
+    try {
+      const livePositions = await getMyPositions({ force: true }).catch(() => null);
+      const positions = livePositions?.positions || [];
+      if (positions.length === 0) {
+        report = "No open positions. Triggering screening cycle.";
+        managementBusy = false;
+        void runScreeningCycle().catch((error: Error) => log("cron_error", `Triggered screening failed: ${error.message}`));
+        return report;
+      }
 
     const positionsSummary = positions.map((p: any, i: number) => {
       const name = p.pool_name || p.pair || p.pool || "Unknown";
@@ -312,6 +313,8 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       const solReceived = Number(result.sol_received ?? 0);
       const reply = `🔒 Closed ${p.pool_name ?? p.pool}\nPnL: ${pnlUsd >= 0 ? "+" : ""}$${Math.abs(pnlUsd).toFixed(2)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toFixed(2)}%)\n${solReceived > 0 ? `✅ Auto-swapped to ${solReceived.toFixed(4)} SOL` : ""}`;
       await sendHTML(reply);
+      // Trigger screening cycle after close to find new positions
+      void runScreeningCycle().catch((error: Error) => log("cron_error", `Triggered screening failed: ${error.message}`));
     } catch (error: unknown) {
       await sendMessage(`Close failed: ${(error as Error).message}`);
     }
