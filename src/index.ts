@@ -254,8 +254,9 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       if (result.error) {
         await sendMessage(`Swap skipped: ${result.error}`);
       } else {
-        const bal = await executeTool("get_wallet_balance", {});
-        await sendHTML(`✅ Swap complete!\nNew SOL balance: ${bal.sol} ($${bal.sol_usd?.toFixed(2)})`);
+        const balResult = await executeTool("get_wallet_balance", {});
+        const solUsd = Number((balResult as any).sol_usd ?? 0);
+        await sendHTML(`✅ Swap complete!\nNew SOL balance: ${balResult.sol} ($${solUsd.toFixed(2)})`);
       }
     } catch (error: unknown) {
       await sendMessage(`Swap failed: ${(error as Error).message}`);
@@ -416,23 +417,6 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       await sendHTML(reply.trim());
     } catch (error: unknown) {
       await sendMessage(`Balance check failed: ${(error as Error).message}`);
-    }
-    return;
-  }
-
-  if (text === "/swap") {
-    await sendMessage("Swapping all tokens to SOL...");
-    try {
-      const { executeTool } = await import("./tools/executor.js");
-      const result = await executeTool("swap_token", { from: "ALL", to: "SOL", amount: 0 });
-      if (result.error) {
-        await sendMessage(`Swap skipped: ${result.error}`);
-      } else {
-        const bal = await executeTool("get_wallet_balance", {});
-        await sendHTML(`✅ Swap complete!\nNew SOL balance: ${bal.sol} ($${bal.sol_usd?.toFixed(2)})`);
-      }
-    } catch (error: unknown) {
-      await sendMessage(`Swap failed: ${(error as Error).message}`);
     }
     return;
   }
