@@ -244,6 +244,25 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   const text = msg.text.trim();
   if (!text) return;
 
+  // Direct triggers that bypass the LLM
+  const lower = text.toLowerCase();
+  if (lower === "/swap" || lower.includes("swap all tokens to sol")) {
+    await sendMessage("Swapping all tokens to SOL...");
+    try {
+      const { executeTool } = await import("./tools/executor.js");
+      const result = await executeTool("swap_token", { from: "ALL", to: "SOL", amount: 0 });
+      if (result.error) {
+        await sendMessage(`Swap skipped: ${result.error}`);
+      } else {
+        const bal = await executeTool("get_wallet_balance", {});
+        await sendHTML(`✅ Swap complete!\nNew SOL balance: ${bal.sol} ($${bal.sol_usd?.toFixed(2)})`);
+      }
+    } catch (error: unknown) {
+      await sendMessage(`Swap failed: ${(error as Error).message}`);
+    }
+    return;
+  }
+
   if (text === "/start") {
     await sendHTML(
       "👋 <b>Welcome to Meridian DLMM LP Agent!</b>\n\n" +
