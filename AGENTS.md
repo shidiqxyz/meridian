@@ -195,10 +195,12 @@ Handled directly in `src/index.ts` (bypass LLM). Commands are registered with Te
 |---------|--------|
 | `/start` | Welcome message with usage guide |
 | `/help` | Full command list |
+| `/deploy` | Pick best pool and deploy using `pick_best_candidate` |
+| `/balance` | Check wallet balance (SOL + token balances) |
 | `/positions` | List open positions with progress bar |
 | `/close <n>` | Close position by list index |
 | `/set <n> <note>` | Set note on position by list index |
-| `/clear` | Clear Telegram REPL session history |
+| `/clear` | Clear Telegram REPL session |
 | `/update` | Update bot via git pull + restart |
 
 **Persistent REPL session**: Natural language messages use a persistent `telegramSession` array (like the console REPL's `replSession`). The agent remembers conversation context across messages. Use `/clear` to reset.
