@@ -206,6 +206,7 @@ function startREPL(): void {
       log("repl", `User: ${input}`);
       if (input === "/help" || input === "help") {
         const helpText = "Available commands:\n"
+          + "  /deploy             Find & deploy to best pool\n"
           + "  /positions          List open positions\n"
           + "  /close <n>          Close position by index\n"
           + "  /set <n> <note>     Set note on position\n"
@@ -303,20 +304,19 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     await sendHTML(
       "👋 <b>Welcome to Meridian DLMM LP Agent!</b>\n\n" +
       "I manage Meteora DLMM liquidity positions for you.\n\n" +
-      "<b>How to use:</b>\n" +
-      "• Send natural language messages — I have a persistent REPL session with context memory\n" +
-      "• Use /positions to see open positions\n" +
-      "• Use /close &lt;n&gt; to close a position by index\n" +
-      "• Use /set &lt;n&gt; &lt;note&gt; to tag a position\n" +
-      "• Use /clear to reset my conversation memory\n" +
-      "• Use /help for full command list\n\n" +
-      "<b>Examples you can send:</b>\n" +
+      "<b>Quick commands:</b>\n" +
+      "• /deploy — Find & deploy to the best pool\n" +
+      "• /positions — List open positions\n" +
+      "• /close &lt;n&gt; — Close position by index\n" +
+      "• /balance — Check wallet balance\n" +
+      "• /swap — Swap all tokens to SOL\n" +
+      "• /help — Full command list\n\n" +
+      "<b>Or just chat with me:</b>\n" +
       "• Find the best pools to deploy\n" +
       "• What is my wallet balance?\n" +
       "• Show performance report\n" +
-      "• Close position 1\n" +
-      "• Swap all tokens to SOL\n\n" +
-      "Type / to see all commands in the menu."
+      "• Close position 1\n\n" +
+      "Type / to see all commands."
     );
     return;
   }
@@ -395,7 +395,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   if (text === "/help" || text === "help") {
     await sendHTML(
       "<b>Available commands:</b>\n"
-      + "/deploy — Pick best pool and deploy\n"
+      + "/deploy — Find & deploy to the best pool\n"
       + "/balance — Check wallet balance\n"
       + "/swap — Swap all tokens to SOL\n"
       + "/positions — List open positions\n"
@@ -404,8 +404,7 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       + "/clear — Clear Telegram REPL session\n"
       + "/update — Update bot via git pull + restart\n"
       + "/help — Show this help\n\n"
-      + "<b>Natural language messages</b> use REPL with persistent session history.\n"
-      + "<b>Examples:</b>\n"
+      + "<b>Or just chat with me:</b>\n"
       + "• Find the best pools to deploy\n"
       + "• Close position 1\n"
       + "• What is my wallet balance?\n"
@@ -415,24 +414,13 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
   }
 
     if (text === "/deploy") {
-    try {
-      const { executeTool } = await import("./tools/executor.js");
-      const best = await executeTool("pick_best_candidate", {});
-      const poolAddress = String(best.pool_address || best.pool || "");
-      if (!poolAddress) throw new Error("No pool found");
-      await sendMessage(`Deploying to ${best.pool_name || best.pool || "Unknown"}...`);
-      const result = await executeTool("deploy_position", { pool_address: poolAddress });
-      const name = String(result.pool_name || result.pool_address || poolAddress);
-      const amount = Number(result.amount_sol ?? result.amount_y ?? result.amount_x ?? 0);
-      const position = String(result.position || "");
-      const txs = (result.txs || result.tx || []) as any[];
-      const tx = String(Array.isArray(txs) ? (txs[0] || "") : (txs || ""));
-      const txLink = tx ? `https://solscan.io/tx/${tx}` : "N/A";
-      const txShort = tx ? `${tx.slice(0, 8)}...${tx.slice(-8)}` : "N/A";
-      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: ${txLink}\nClick: ${txShort}`);
-    } catch (error: unknown) {
-      await sendMessage(`Deploy failed: ${(error as Error).message}`);
-    }
+    // Let the LLM handle it — it will pick best pool and deploy
+    telegramSession.push({ role: "user", content: "Find the best pool and deploy to it using deploy_position." });
+    const { agentLoop } = await import("./core/agent/agent.js");
+    const response = await agentLoop("Find the best pool and deploy to it using deploy_position.", undefined, telegramSession, "SCREENER");
+    const textOut = stripMarkdown(stripThink(response.content) ?? "");
+    telegramSession.push({ role: "assistant", content: textOut ?? "" });
+    await sendMessage(textOut || "Deploy triggered.");
     return;
   }
 
