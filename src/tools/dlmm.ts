@@ -98,6 +98,7 @@ interface DeployPositionResult {
   position?: string;
   pool?: string;
   pool_name?: string;
+  amount_sol?: number;
   bin_range?: { min: number; max: number; active: number; bins_below?: number; bins_above?: number };
   price_range?: { min: number; max: number };
   range_coverage?: {
@@ -958,14 +959,15 @@ export async function deployPosition(args: DeployPositionArgs): Promise<DeployPo
           width_pct: totalWidthPct,
           active_price: activePrice,
         },
-        bin_step: actualBinStep,
-        base_fee: actualBaseFee,
-        strategy: activeStrategy,
-        wide_range: isWideRange,
-        amount_x: finalAmountX,
-        amount_y: finalAmountY,
-        txs: normalizeExecutionSignatures(submit),
-      };
+       bin_step: actualBinStep,
+       base_fee: actualBaseFee,
+       strategy: activeStrategy,
+       wide_range: isWideRange,
+       amount_x: finalAmountX,
+       amount_y: finalAmountY,
+       amount_sol: finalAmountY || finalAmountX,
+       txs: normalizeExecutionSignatures(submit),
+     };
     } catch (error: unknown) {
       const errMsg = error instanceof Error ? error.message : String(error);
       log("deploy_error", `Relay deploy failed: ${errMsg}`);
@@ -1090,20 +1092,21 @@ export async function deployPosition(args: DeployPositionArgs): Promise<DeployPo
         width_pct: totalWidthPct,
         active_price: activePrice,
       },
-      bin_step: actualBinStep,
-      base_fee: actualBaseFee,
-      strategy: activeStrategy,
-      wide_range: isWideRange,
-      amount_x: finalAmountX,
-      amount_y: finalAmountY,
-      txs: txHashes,
-    };
-  } catch (error: unknown) {
-    const errMsg = error instanceof Error ? error.message : String(error);
-    log("deploy_error", errMsg);
-    return { success: false, error: errMsg };
-  }
-}
+       bin_step: actualBinStep,
+       base_fee: actualBaseFee,
+       strategy: activeStrategy,
+       wide_range: isWideRange,
+       amount_x: finalAmountX,
+       amount_y: finalAmountY,
+       amount_sol: finalAmountY || finalAmountX, // for backward compat with index.ts / notifyDeploy
+       txs: txHashes,
+     };
+   } catch (error: unknown) {
+     const errMsg = error instanceof Error ? error.message : String(error);
+     log("deploy_error", errMsg);
+     return { success: false, error: errMsg };
+   }
+ }
 
 const POSITIONS_CACHE_TTL = 5 * 60_000; // 5 minutes
 

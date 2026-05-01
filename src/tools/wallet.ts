@@ -44,7 +44,7 @@ export function getJupiterReferralParams(): ReferralParams | null {
     return null;
   }
   if (referralFee < 50 || referralFee > 255) {
-    log("swap_warn", `Ignoring Jupiter referral fee ${referralFee}; Ultra requires 50-255 bps`);
+    log("swap_warn", `Ignoring Jupiter referral fee ${referralFee}; V2 requires 50-255 bps`);
     return null;
   }
   try {
@@ -122,7 +122,7 @@ export async function getWalletBalances(): Promise<WalletBalances> {
     const data = await res.json();
     const balances = data.balances || [];
 
-    // ─── Find SOL and USDC ──────────────────────────────────
+    // ─── Find SOL and USDC ──────────────────────────
     const solEntry = balances.find((b: any) => b.mint === config.tokens.SOL || b.symbol === "SOL");
     const usdcEntry = balances.find((b: any) => b.mint === config.tokens.USDC || b.symbol === "USDC");
 
@@ -131,7 +131,7 @@ export async function getWalletBalances(): Promise<WalletBalances> {
     const solUsd = solEntry?.usdValue || 0;
     const usdcBalance = usdcEntry?.balance || 0;
 
-    // ─── Map all tokens ──────────────────────────────────
+    // ─── Map all tokens ──────────────────────────
     const enrichedTokens: TokenBalance[] = balances.map((b: any) => ({
       mint: b.mint,
       symbol: b.symbol || b.mint.slice(0, 8),
@@ -172,7 +172,7 @@ export async function getWalletPositions({ wallet_address }: { wallet_address: s
   return getPositions({ wallet_address });
 }
 
-const SOL_MINT = "So11111111111111111111111111111112";
+const SOL_MINT = "So11111111111111111111111111111111111111112";
 
 // Normalize any SOL-like address to the correct wrapped SOL mint
 export function normalizeMint(mint: string): string {
@@ -195,7 +195,7 @@ interface SwapParams {
   amount: number;
 }
 
-interface SwapResult {
+export interface SwapResult {
   success?: boolean;
   dry_run?: boolean;
   would_swap?: any;
@@ -216,14 +216,21 @@ interface SwapResult {
  * Swap tokens via Jupiter Swap API V2 (order → sign → execute).
  */
 export async function swapToken({ input_mint, output_mint, amount }: SwapParams): Promise<SwapResult> {
-  input_mint = normalizeMint(input_mint);
+  input_mint  = normalizeMint(input_mint);
   output_mint = normalizeMint(output_mint);
 
-  // Guard against undefined mints
-  if (!input_mint || !output_mint || input_mint === "undefined" || output_mint === "undefined") {
-    const stack = new Error().stack;
-    log("swap_debug", `swapToken called with invalid mint! input=${input_mint}, output=${output_mint}, amount=${amount}\nCaller: ${stack}`);
-    return { input_mint: input_mint || "undefined", output_mint: output_mint || "undefined", amount_in: amount, error: "Invalid mint: undefined or empty" };
+  if (input_mint === output_mint) {
+    return { success: false, error: "input_mint and output_mint are the same" };
+  }
+
+  // Validate mint address format
+  if (input_mint.length < 32 || input_mint.length > 44) {
+    log("swap_error", `Invalid input_mint format: ${input_mint} (length: ${input_mint.length})`);
+    return { success: false, error: `Invalid input_mint format: ${input_mint}` };
+  }
+  if (output_mint.length < 32 || output_mint.length > 44) {
+    log("swap_error", `Invalid output_mint format: ${output_mint} (length: ${output_mint.length})`);
+    return { success: false, error: `Invalid output_mint format: ${output_mint}` };
   }
 
   if (process.env.DRY_RUN === "true") {
@@ -243,11 +250,12 @@ export async function swapToken({ input_mint, output_mint, amount }: SwapParams)
     let decimals = 9; // SOL default
     if (input_mint !== config.tokens.SOL) {
       const mintInfo = await connection.getParsedAccountInfo(new PublicKey(input_mint));
-      decimals = (mintInfo.value?.data as any)?.parsed?.info?.decimals ?? 9;
+      const data = mintInfo.value?.data;
+      decimals = data && "parsed" in data ? (data as any).parsed?.info?.decimals ?? 9 : 9;
     }
     const amountStr = Math.floor(amount * Math.pow(10, decimals)).toString();
 
-    // ─── Get Swap V2 order (unsigned tx + requestId) ──────────
+    // ─── Get Swap V2 order (unsigned tx + requestId) ───────────
     const search = new URLSearchParams({
       inputMint: input_mint,
       outputMint: output_mint,
@@ -262,25 +270,33 @@ export async function swapToken({ input_mint, output_mint, amount }: SwapParams)
     const orderUrl = `${JUPITER_SWAP_V2_API}/order?${search.toString()}`;
     const jupiterApiKey = getJupiterApiKey();
 
+    // ─── Detailed debug logging ────────────────────────────────
+    log("swap_debug", `════ Jupiter Swap V2 Order Request ════`);
+    log("swap_debug", `Full URL: ${orderUrl}`);
+    log("swap_debug", `input_mint (raw): "${input_mint}"`);
+    log("swap_debug", `input_mint (length): ${input_mint.length}`);
+    log("swap_debug", `input_mint (char codes): ${[...input_mint].map(c => c.charCodeAt(0)).join(",")}`);
+    log("swap_debug", `output_mint (raw): "${output_mint}"`);
+    log("swap_debug", `output_mint (length): ${output_mint.length}`);
+    log("swap_debug", `output_mint (char codes): ${[...output_mint].map(c => c.charCodeAt(0)).join(",")}`);
+    log("swap_debug", `amount: ${amount} → amountStr: ${amountStr}`);
+    log("swap_debug", `decimals used: ${decimals}`);
+    log("swap_debug", `API key present: ${!!jupiterApiKey}`);
+    log("swap_debug", `Search params: ${search.toString()}`);
+
     const orderRes = await fetch(orderUrl, {
       headers: jupiterApiKey ? { "x-api-key": jupiterApiKey } : {},
     });
+
+    const body = await orderRes.text();
+    log("swap_debug", `Response status: ${orderRes.status} ${orderRes.statusText}`);
+    log("swap_debug", `Response body: ${body.slice(0, 500)}`);
+
     if (!orderRes.ok) {
-      const body = await orderRes.text();
-      // Graceful fail for invalid mints — don't retry
-      if (body.includes("Invalid outputMint") || body.includes("Invalid inputMint")) {
-        log("swap_skip", `Invalid mint, skipping swap: ${input_mint} → ${output_mint}`);
-        return {
-          input_mint,
-          output_mint,
-          amount_in: amount,
-          error: `Invalid mint: token may be migrated or unsupported`,
-        };
-      }
       throw new Error(`Swap V2 order failed: ${orderRes.status} ${body}`);
     }
 
-    const order = await orderRes.json();
+    const order = JSON.parse(body);
     if (order.errorCode || order.errorMessage) {
       throw new Error(`Swap V2 order error: ${order.errorMessage || order.errorCode}`);
     }
@@ -292,7 +308,7 @@ export async function swapToken({ input_mint, output_mint, amount }: SwapParams)
     tx.sign([wallet]);
     const signedTx = Buffer.from(tx.serialize()).toString("base64");
 
-    // ─── Execute ───────────────────────────────────────────
+    // ─── Execute ───────────────────────────────────────────────
     const execRes = await fetch(`${JUPITER_SWAP_V2_API}/execute`, {
       method: "POST",
       headers: {

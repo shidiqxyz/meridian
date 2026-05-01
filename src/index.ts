@@ -259,14 +259,40 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
     await sendMessage("Swapping all tokens to SOL...");
     try {
       const { executeTool } = await import("./tools/executor.js");
-      const result = await executeTool("swap_token", { from: "ALL", to: "SOL", amount: 0 });
-      if (result.error) {
-        await sendMessage(`Swap skipped: ${result.error}`);
-      } else {
-        const balResult = await executeTool("get_wallet_balance", {});
-        const solUsd = Number((balResult as any).sol_usd ?? 0);
-        await sendHTML(`✅ Swap complete!\nNew SOL balance: ${balResult.sol} ($${solUsd.toFixed(2)})`);
+      const { getWalletBalances, normalizeMint } = await import("./tools/wallet.js");
+
+      const balances = await getWalletBalances();
+      const solMint = "So11111111111111111111111111111111111111112";
+
+      // Filter: positive balance, not SOL, and mint is a valid-looking address
+      const tokensToSwap = (balances.tokens?.filter(t =>
+        t.balance > 0 &&
+        t.mint !== solMint &&
+        t.mint.length >= 32 &&
+        t.mint.length <= 44
+      ) || []);
+
+      if (tokensToSwap.length === 0) {
+        await sendMessage("No tokens to swap.");
+        return;
       }
+
+      let swapped = 0;
+      for (const token of tokensToSwap) {
+        try {
+          const inputMint = normalizeMint(token.mint);
+          if (inputMint === solMint) continue; // skip SOL→SOL
+          await executeTool("swap_token", { input_mint: inputMint, output_mint: "SOL", amount: token.balance });
+          swapped++;
+          await new Promise(r => setTimeout(r, 3000));
+        } catch (err) {
+          log("swap_error", `Failed to swap ${token.symbol}: ${(err as Error).message}`);
+        }
+      }
+
+      const balResult = await executeTool("get_wallet_balance", {});
+      const solUsd = Number((balResult as any).sol_usd ?? 0);
+      await sendHTML(`✅ Swapped ${swapped}/${tokensToSwap.length} tokens!\nNew SOL balance: ${balResult.sol} ($${solUsd.toFixed(2)})`);
     } catch (error: unknown) {
       await sendMessage(`Swap failed: ${(error as Error).message}`);
     }
@@ -397,12 +423,13 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
       await sendMessage(`Deploying to ${best.pool_name || best.pool || "Unknown"}...`);
       const result = await executeTool("deploy_position", { pool_address: poolAddress });
       const name = String(result.pool_name || result.pool_address || poolAddress);
-      const amount = Number(result.amount_sol ?? result.amount_y ?? 0);
+      const amount = Number(result.amount_sol ?? result.amount_y ?? result.amount_x ?? 0);
       const position = String(result.position || "");
-      const txs = (result.tx || result.txs || []) as any[];
-      const tx = String(Array.isArray(txs) ? txs[0] : txs || "");
+      const txs = (result.txs || result.tx || []) as any[];
+      const tx = String(Array.isArray(txs) ? (txs[0] || "") : (txs || ""));
+      const txLink = tx ? `https://solscan.io/tx/${tx}` : "N/A";
       const txShort = tx ? `${tx.slice(0, 8)}...${tx.slice(-8)}` : "N/A";
-      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: https://solscan.io/tx/${tx}\nClick: ${txShort}`);
+      await sendHTML(`✅ Deployed ${name}\nAmount: ${amount} SOL\nPosition: ${position.slice(0, 8)}...\nTx: ${txLink}\nClick: ${txShort}`);
     } catch (error: unknown) {
       await sendMessage(`Deploy failed: ${(error as Error).message}`);
     }

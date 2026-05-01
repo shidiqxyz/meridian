@@ -339,7 +339,11 @@ const toolMap: ToolMap = {
   claim_fees: (args) => claimFees(args),
   close_position: (args) => closePosition(args),
   get_wallet_balance: () => getWalletBalances(),
-  swap_token: (args) => swapToken(args),
+  swap_token: (args) => {
+    const input_mint = args.input_mint || args.from;
+    const output_mint = args.output_mint || args.to;
+    return swapToken({ input_mint, output_mint, amount: args.amount });
+  },
   get_top_lpers: (args) => studyTopLPers(args),
   study_top_lpers: (args) => studyTopLPers(args),
   set_position_note: (args) => toolSetPositionNote(args),
@@ -384,7 +388,7 @@ async function maybeNotifyAndAutomanage(name: string, args: Record<string, unkno
   if (name === "swap_token" && (result.tx || result.txs?.[0])) {
     await notifySwap({
       inputSymbol: asString(args.input_mint)?.slice(0, 8) || "",
-      outputSymbol: asString(args.output_mint) === "So11111111111111111111111111111111111112" || asString(args.output_mint) === "SOL"
+      outputSymbol: asString(args.output_mint) === "So11111111111111111111111111111111111111112" || asString(args.output_mint) === "SOL"
         ? "SOL"
         : asString(args.output_mint)?.slice(0, 8) || "",
       amountIn: result.amount_in,
@@ -396,7 +400,7 @@ async function maybeNotifyAndAutomanage(name: string, args: Record<string, unkno
   if (name === "deploy_position") {
     await notifyDeploy({
       pair: asString(result.pool_name) || asString(args.pool_name) || asString(args.pool_address)?.slice(0, 8) || "",
-      amountSol: asNumber(args.amount_y ?? args.amount_sol) ?? 0,
+      amountSol: asNumber(result.amount_sol ?? result.amount_y ?? result.amount_x) ?? 0,
       position: result.position,
       tx: result.txs?.[0] ?? result.tx,
       priceRange: result.price_range,
