@@ -1537,22 +1537,32 @@ export async function getWalletPositions({ wallet_address }: GetWalletPositionsA
     uniquePools.forEach((pool: string, i: number) => { pnlByPool[pool] = pnlMaps[i]; });
 
     const positions = raw.map((r) => {
-      const p = pnlByPool[r.pool]?.[r.position] || null;
+      try {
+        const p = pnlByPool[r.pool]?.[r.position] || null;
 
-      return {
-        position:           r.position,
-        pool:               r.pool,
-        lower_bin:          p?.lowerBinId      ?? null,
-        upper_bin:          p?.upperBinId      ?? null,
-        active_bin:         p?.poolActiveBinId ?? null,
-        in_range:           p ? !p.isOutOfRange : null,
-        unclaimed_fees_usd: Math.round((p ? (parseFloat(p.unrealizedPnl?.unclaimedFeeTokenX?.usd || 0) + parseFloat(p.unrealizedPnl?.unclaimedFeeTokenY?.usd || 0)) : 0) * 100) / 100,
-        total_value_usd:    Math.round((p ? parseFloat(p.unrealizedPnl?.balances || 0) : 0) * 100) / 100,
-        pnl_usd:            Math.round((p?.pnlUsd ?? 0) * 100) / 100,
-        pnl_pct:            Math.round((p?.pnlPctChange ?? 0) * 100) / 100,
-        age_minutes:        p?.createdAt ? Math.floor((Date.now() - p.createdAt * 1000) / 60000) : null,
-      };
-    });
+        // Safely extract values to avoid _bn undefined errors
+        const feeX = p?.unrealizedPnl?.unclaimedFeeTokenX?.usd;
+        const feeY = p?.unrealizedPnl?.unclaimedFeeTokenY?.usd;
+        const balances = p?.unrealizedPnl?.balances;
+
+        return {
+          position:           r.position,
+          pool:               r.pool,
+          lower_bin:          p?.lowerBinId      ?? null,
+          upper_bin:          p?.upperBinId      ?? null,
+          active_bin:         p?.poolActiveBinId ?? null,
+          in_range:           p ? !p.isOutOfRange : null,
+          unclaimed_fees_usd: Math.round((p ? ((parseFloat(feeX) || 0) + (parseFloat(feeY) || 0)) : 0) * 100) / 100,
+          total_value_usd:    Math.round((p ? (parseFloat(balances) || 0) : 0) * 100) / 100,
+          pnl_usd:            Math.round((p?.pnlUsd ?? 0) * 100) / 100,
+          pnl_pct:            Math.round((p?.pnlPctChange ?? 0) * 100) / 100,
+          age_minutes:        p?.createdAt ? Math.floor((Date.now() - p.createdAt * 1000) / 60000) : null,
+        };
+      } catch (err) {
+        log("wallet_positions_error", `Skipping position ${r.position}: ${err instanceof Error ? err.message : err}`);
+        return null;
+      }
+    }).filter((p): p is NonNullable<typeof p> => p !== null);
 
     return { wallet: wallet_address, total_positions: positions.length, positions };
   } catch (error: unknown) {
