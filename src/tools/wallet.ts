@@ -221,6 +221,8 @@ export async function swapToken({ input_mint, output_mint, amount }: SwapParams)
 
   // Guard against undefined mints
   if (!input_mint || !output_mint || input_mint === "undefined" || output_mint === "undefined") {
+    const stack = new Error().stack;
+    log("swap_debug", `swapToken called with invalid mint! input=${input_mint}, output=${output_mint}, amount=${amount}\nCaller: ${stack}`);
     return { input_mint: input_mint || "undefined", output_mint: output_mint || "undefined", amount_in: amount, error: "Invalid mint: undefined or empty" };
   }
 

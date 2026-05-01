@@ -246,6 +246,15 @@ async function handleTelegramMessage(msg: { text: string; isCallback?: boolean; 
 
   // Direct triggers that bypass the LLM
   const lower = text.toLowerCase();
+  
+  // Simple greetings → short status instead of chatty LLM
+  if (lower === "hi" || lower === "hello" || lower === "hey") {
+    const { getWalletBalances } = await import("./tools/wallet.js");
+    const bal = await getWalletBalances();
+    await sendHTML(`👋 Hi! Wallet: ${bal.sol} SOL ($${bal.sol_usd?.toFixed(2)})\nOpen positions: Run /positions`);
+    return;
+  }
+  
   if (lower === "/swap" || lower.includes("swap all tokens to sol")) {
     await sendMessage("Swapping all tokens to SOL...");
     try {
