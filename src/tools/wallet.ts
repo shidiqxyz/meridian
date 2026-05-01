@@ -260,6 +260,16 @@ export async function swapToken({ input_mint, output_mint, amount }: SwapParams)
     });
     if (!orderRes.ok) {
       const body = await orderRes.text();
+      // Graceful fail for invalid mints — don't retry
+      if (body.includes("Invalid outputMint") || body.includes("Invalid inputMint")) {
+        log("swap_skip", `Invalid mint, skipping swap: ${input_mint} → ${output_mint}`);
+        return {
+          input_mint,
+          output_mint,
+          amount_in: amount,
+          error: `Invalid mint: token may be migrated or unsupported`,
+        };
+      }
       throw new Error(`Swap V2 order failed: ${orderRes.status} ${body}`);
     }
 
